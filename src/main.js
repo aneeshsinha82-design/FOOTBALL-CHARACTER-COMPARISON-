@@ -28,6 +28,9 @@ const project = {
     detailAnimation: 'draw',
     characterHighlight: 'soft-glow',
     motionGraphics: 'none',
+    clubNameColor: '#ffffff',
+    detailsColor: '#f6f9ff',
+    fontFamily: 'system-ui, sans-serif',
   },
 };
 const playback = { currentTime: 0, playing: false, startAt: 0, frame: 0 };
@@ -86,6 +89,9 @@ app.innerHTML = `
             <label class="select-field"><span>Detail entrance</span><select data-setting="detailAnimation"><option value="draw">Draw border</option><option value="fade">Fade in</option><option value="slide-up">Slide up</option><option value="rise-fade">Rise + fade</option><option value="zoom">Zoom in</option><option value="wipe">Top-down reveal</option><option value="spring">Spring pop</option><option value="slide-left">Slide from left</option><option value="name-then-slide">Name first, details slide down</option><option value="callouts">Connected callouts</option></select></label>
             <label class="select-field"><span>Character highlight</span><select data-setting="characterHighlight"><option value="none">None</option><option value="soft-glow">Soft glow</option><option value="cyan-aura">Cyan aura</option><option value="gold-aura">Gold aura</option><option value="spotlight">Spotlight</option><option value="pulse">Pulse</option><option value="bounce">Bounce</option><option value="halo">Halo ring</option><option value="rays">Light rays</option><option value="sparkles">Sparkles</option><option value="shimmer">Moving shimmer</option><option value="color-pop">Color pop</option><option value="focus">Focus stage</option></select></label>
             <label class="select-field"><span>Motion graphics <small>100 presets</small></span><select data-setting="motionGraphics">${motionGraphicOptions}</select></label>
+            <label class="select-field"><span>Club name color</span><input data-setting="clubNameColor" type="color" value="#ffffff" aria-label="Club name color"></label>
+            <label class="select-field"><span>Details color</span><input data-setting="detailsColor" type="color" value="#f6f9ff" aria-label="Details color"></label>
+            <label class="select-field"><span>Font style</span><select data-setting="fontFamily"><option value="system-ui, sans-serif">System</option><option value="Arial, sans-serif">Arial</option><option value="Georgia, serif">Georgia</option><option value="Trebuchet MS, sans-serif">Trebuchet</option><option value="Courier New, monospace">Monospace</option></select></label>
             
             <label class="select-field"><span>Video resolution</span><select id="export-resolution"><option value="1920x1080">1920 × 1080</option><option value="1280x720">1280 × 720</option></select></label>
             <label class="select-field"><span>Frame rate</span><select id="export-fps"><option value="30">30 FPS</option><option value="60">60 FPS</option></select></label>
@@ -456,7 +462,7 @@ app.addEventListener('click', (event) => {
 app.addEventListener('input', (event) => {
   const { setting, characterName, detailField, id, detailId } = event.target.dataset;
   if (setting) {
-    project.settings[setting] = ['detailAnimation', 'characterHighlight', 'motionGraphics'].includes(setting) ? event.target.value : Number(event.target.value);
+    project.settings[setting] = ['detailAnimation', 'characterHighlight', 'motionGraphics', 'clubNameColor', 'detailsColor', 'fontFamily'].includes(setting) ? event.target.value : Number(event.target.value);
     renderSettingsValues();
     renderScene();
     return;
