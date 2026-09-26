@@ -28,9 +28,10 @@ export async function createImageAsset(file) {
 
 
 const CLUB_LOGO_BASE = 'https://crests.football-data.org/';
+const canvasSafePng = (url) => `https://wsrv.nl/?url=${encodeURIComponent(url)}&output=png`;
 
 export function createClubCharacter({ name, goals, matches, crestId, league, leagueCode }) {
-  const logoUrl = `${CLUB_LOGO_BASE}${crestId}.png`;
+  const logoUrl = canvasSafePng(`${CLUB_LOGO_BASE}${crestId}.png`);
   const imageElement = new Image();
   imageElement.crossOrigin = 'anonymous';
   imageElement.addEventListener('load', () => window.dispatchEvent(new Event('club-logo-loaded')), { once: true });
@@ -38,7 +39,7 @@ export function createClubCharacter({ name, goals, matches, crestId, league, lea
   const leagueEmblem = new Image();
   leagueEmblem.crossOrigin = 'anonymous';
   leagueEmblem.addEventListener('load', () => window.dispatchEvent(new Event('club-logo-loaded')), { once: true });
-  leagueEmblem.src = `${CLUB_LOGO_BASE}${leagueCode}.png`;
+  leagueEmblem.src = canvasSafePng(`${CLUB_LOGO_BASE}${leagueCode}.png`);
   const details = [
     { label: 'Goals scored', value: String(goals) },
     { label: 'Matches played', value: String(matches) },
