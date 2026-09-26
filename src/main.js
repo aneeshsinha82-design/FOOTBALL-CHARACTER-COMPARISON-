@@ -100,7 +100,7 @@ app.innerHTML = `
         </section>
 
         <section class="export-panel">
-          <div class="export-copy"><div class="export-icon">▶</div><div><p class="eyebrow">BROWSER VIDEO EXPORT</p><h2>Make a real comparison video</h2><p>Records the same camera animation shown in the preview.</p></div></div>
+          <div class="export-copy"><div class="export-icon">▶</div><div><p class="eyebrow">BROWSER VIDEO EXPORT</p><h2>Make a real comparison video</h2><p>MP4 is re-encoded as H.264, 1920 × 1080, constant 60 FPS, and optimized for editing.</p></div></div>
           <button id="generate-video" class="button button-primary generate-button" data-action="generate-video">Generate Video <span>↗</span></button>
           <div id="export-progress" class="export-progress" hidden><div class="progress-copy"><span id="progress-label">Preparing video…</span><span id="progress-value">0%</span></div><div class="progress-track"><span id="progress-fill"></span></div></div>
           <p id="export-message" class="export-message" role="status" aria-live="polite"></p>
@@ -382,6 +382,7 @@ async function startVideoExport() {
       resolution: document.querySelector('#export-resolution').value,
       fps: document.querySelector('#export-fps').value,
       format,
+      onStatus: (message) => setNotice(message),
       onProgress: (amount) => {
         const percent = Math.round(amount * 100);
         fill.style.width = `${percent}%`;
