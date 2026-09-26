@@ -38,10 +38,8 @@ async function transcodeToMp4(sourceBlob, duration, onProgress, onStatus) {
   const inputBytes = new Uint8Array(await sourceBlob.arrayBuffer());
   try {
     await ffmpeg.writeFile(inputName, inputBytes);
-    let latestLog = '';
     const handleLog = ({ message }) => {
-      latestLog = message;
-      const match = message.match(/time=(\\d+):(\\d+):(\\d+(?:\\.\\d+)?)/);
+      const match = message.match(/time=(\d+):(\d+):(\d+(?:\.\d+)?)/);
       if (match) {
         const seconds = Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3]);
         onProgress?.(0.82 + Math.min(seconds / duration, 1) * 0.17);
