@@ -26,6 +26,34 @@ export async function createImageAsset(file) {
   }
 }
 
+
+const CLUB_LOGO_BASE = 'https://crests.football-data.org/';
+
+export function createClubCharacter({ name, goals, matches, crestId }) {
+  const logoUrl = `${CLUB_LOGO_BASE}${crestId}.png`;
+  const imageElement = new Image();
+  imageElement.crossOrigin = 'anonymous';
+  imageElement.addEventListener('load', () => window.dispatchEvent(new Event('club-logo-loaded')), { once: true });
+  imageElement.src = logoUrl;
+  const details = [
+    { label: 'Goals scored', value: String(goals) },
+    { label: 'Matches played', value: String(matches) },
+    { label: 'Goals per game', value: (goals / matches).toFixed(2) },
+  ].map((detail) => ({ id: crypto.randomUUID(), ...detail, image: null }));
+
+  return {
+    id: crypto.randomUUID(),
+    name,
+    goals,
+    matches,
+    image: { id: crypto.randomUUID(), name: `${name} crest.png`, url: logoUrl, width: 512, height: 512, imageElement, remote: true },
+    position: { x: 0, y: 0 },
+    renderedDimensions: { width: 0, height: 0 },
+    details,
+    animation: { emphasis: 1 },
+  };
+}
+
 export function createCharacter(index) {
   return {
     id: crypto.randomUUID(),
@@ -44,5 +72,5 @@ export function createCharacter(index) {
 }
 
 export function releaseAsset(asset) {
-  if (asset?.url) URL.revokeObjectURL(asset.url);
+  if (asset?.url && !asset.remote) URL.revokeObjectURL(asset.url);
 }
