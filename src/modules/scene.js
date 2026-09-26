@@ -43,14 +43,17 @@ const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const smoothstep = (value) => value * value * (3 - 2 * value);
 
 function getImage(asset) {
-  const url = typeof asset === 'string' ? asset : asset?.url;
-  if (!url) return null;
+  const sourceUrl = typeof asset === 'string' ? asset : asset?.url;
+  if (!sourceUrl) return null;
   if (asset?.imageElement?.complete && asset.imageElement.naturalWidth) return asset.imageElement;
+  const url = /^https?:\\/\\//i.test(sourceUrl)
+    ? `https://wsrv.nl/?url=${encodeURIComponent(sourceUrl)}&output=png`
+    : sourceUrl;
   if (!imageCache.has(url)) {
     const image = new Image();
     image.crossOrigin = 'anonymous';
-    image.src = url;
     image.addEventListener('load', () => window.dispatchEvent(new Event('club-logo-loaded')), { once: true });
+    image.src = url;
     imageCache.set(url, image);
   }
   const image = imageCache.get(url);
@@ -535,9 +538,9 @@ function drawPlayerLeaders(ctx, character, isActive, turnSeconds, phase, setting
     { player: leaders.scorer, label: 'LEAGUE TOP SCORER', side: -1, tint: '#ffcf70' },
     { player: leaders.assister, label: 'LEAGUE TOP ASSISTS', side: 1, tint: '#70dfff' },
   ];
-  ctx.save();
   const fadeIn = smoothstep(clamp(turnSeconds / 0.65, 0, 1));
   if (fadeIn <= 0) return;
+  ctx.save();
   ctx.globalAlpha = fadeIn;
   entries.forEach(({ player, label, side, tint }) => {
     const px = x + side * offset;
