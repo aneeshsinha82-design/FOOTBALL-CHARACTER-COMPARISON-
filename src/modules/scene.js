@@ -50,6 +50,7 @@ function getImage(asset) {
     const image = new Image();
     image.crossOrigin = 'anonymous';
     image.src = url;
+    image.addEventListener('load', () => window.dispatchEvent(new Event('club-logo-loaded')), { once: true });
     imageCache.set(url, image);
   }
   const image = imageCache.get(url);
@@ -78,7 +79,7 @@ export function getSceneLayout(project) {
     character.renderedDimensions = { width, height };
     return Math.max(max, width);
   }, 0);
-  const gap = Math.max(Number(project.settings.characterSpacing) || 1050, maxWidth + 280);
+  const gap = Math.max(Number(project.settings.characterSpacing) || 1050, maxWidth + 660);
 
   project.characters.forEach((character, index) => {
     const width = character.renderedDimensions.width || 278;
@@ -522,6 +523,68 @@ function drawCharacter(ctx, character, isActive, highlightStyle = 'none', turnSe
   ctx.restore();
 }
 
+function drawPlayerLeaders(ctx, character, isActive, settings = {}) {
+  const leaders = character.leaders;
+  if (!leaders?.scorer || !leaders?.assister) return;
+  const { x } = character.position;
+  const clubWidth = character.renderedDimensions.width || 520;
+  const portraitW = 150;
+  const portraitH = 220;
+  const offset = clubWidth * 0.5 + 136;
+  const entries = [
+    { player: leaders.scorer, label: 'LEAGUE TOP SCORER', side: -1, tint: '#ffcf70' },
+    { player: leaders.assister, label: 'LEAGUE TOP ASSISTS', side: 1, tint: '#70dfff' },
+  ];
+  ctx.save();
+  ctx.globalAlpha = isActive ? 1 : 0.55;
+  entries.forEach(({ player, label, side, tint }) => {
+    const px = x + side * offset;
+    const image = getImage(`https://images.fotmob.com/image_resources/playerimages/${player.id}.png`);
+    if (image) {
+      const scale = Math.min(portraitW / image.naturalWidth, portraitH / image.naturalHeight);
+      const w = image.naturalWidth * scale;
+      const h = image.naturalHeight * scale;
+      ctx.drawImage(image, px - w / 2, BASELINE - h - 18, w, h);
+    } else {
+      ctx.fillStyle = '#17233a';
+      ctx.beginPath();
+      ctx.arc(px, BASELINE - 145, 54, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = `700 36px ${settings.fontFamily || 'system-ui, sans-serif'}`;
+      ctx.textAlign = 'center';
+      ctx.fillText(player.name.split(/\\s+/).map((part) => part[0]).slice(0, 2).join(''), px, BASELINE - 132);
+    }
+    ctx.strokeStyle = tint;
+    ctx.fillStyle = tint;
+    ctx.lineWidth = 5;
+    ctx.shadowColor = tint;
+    ctx.shadowBlur = isActive ? 16 : 0;
+    ctx.beginPath();
+    const startX = x + side * (clubWidth * 0.5 - 12);
+    const endX = px - side * 75;
+    const arrowY = BASELINE - 185;
+    ctx.moveTo(startX, arrowY);
+    ctx.lineTo(endX, arrowY);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(endX, arrowY);
+    ctx.lineTo(endX - side * 20, arrowY - 13);
+    ctx.lineTo(endX - side * 20, arrowY + 13);
+    ctx.closePath();
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = tint;
+    ctx.font = `700 19px ${settings.fontFamily || 'system-ui, sans-serif'}`;
+    ctx.fillText(label, px, BASELINE - 250, 280);
+    ctx.fillStyle = settings.clubNameColor || '#ffffff';
+    ctx.font = `600 25px ${settings.fontFamily || 'system-ui, sans-serif'}`;
+    ctx.fillText(player.name, px, BASELINE - 2, 300);
+  });
+  ctx.restore();
+}
+
 function drawLeagueTag(ctx, character, isActive, settings = {}) {
   const league = character.league;
   if (!league?.name) return;
@@ -873,6 +936,7 @@ export function drawScene(canvas, project, seconds) {
   if (frame.activeIndex >= 0) drawMotionGraphics(ctx, project.settings.motionGraphics, project.characters[frame.activeIndex], seconds);
   project.characters.forEach((character, index) => {
     drawCharacter(ctx, character, index === frame.activeIndex, highlight, frame.turnSeconds);
+    drawPlayerLeaders(ctx, character, index === frame.activeIndex, project.settings);
     drawLeagueTag(ctx, character, index === frame.activeIndex, project.settings);
   });
   if (frame.activeIndex >= 0) drawDetailCard(ctx, project.characters[frame.activeIndex], frame.detailBorderProgress, project.settings.detailAnimation, frame.detailAnimationElapsed, frame.detailAnimationDuration, project.settings);
