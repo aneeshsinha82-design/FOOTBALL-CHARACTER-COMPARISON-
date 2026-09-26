@@ -29,7 +29,7 @@ export async function createImageAsset(file) {
 
 const CLUB_LOGO_BASE = 'https://crests.football-data.org/';
 
-export function createClubCharacter({ name, goals, matches, crestId, league, leagueCode }) {
+export function createClubCharacter({ name, goals, matches, crestId, league, leagueCode, leaders }) {
   const logoUrl = `${CLUB_LOGO_BASE}${crestId}.png`;
   const imageElement = new Image();
   imageElement.crossOrigin = 'anonymous';
@@ -50,6 +50,7 @@ export function createClubCharacter({ name, goals, matches, crestId, league, lea
     name,
     goals,
     matches,
+    leaders,
     league: {
       name: league,
       emblem: { url: leagueEmblem.src, width: 128, height: 128, imageElement: leagueEmblem },
