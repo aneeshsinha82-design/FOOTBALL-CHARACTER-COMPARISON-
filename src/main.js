@@ -93,6 +93,7 @@ app.innerHTML = `
             <label class="select-field"><span>Details color</span><input data-setting="detailsColor" type="color" value="#f6f9ff" aria-label="Details color"></label>
             <label class="select-field"><span>Font style</span><select data-setting="fontFamily"><option value="system-ui, sans-serif">System</option><option value="Arial, sans-serif">Arial</option><option value="Georgia, serif">Georgia</option><option value="Trebuchet MS, sans-serif">Trebuchet</option><option value="Courier New, monospace">Monospace</option></select></label>
             
+            <label class="select-field"><span>Download format</span><select id="export-format"><option value="mp4" selected>MP4</option><option value="webm">WebM</option></select></label>
             <label class="select-field"><span>Video resolution</span><select id="export-resolution"><option value="1920x1080">1920 × 1080</option><option value="1280x720">1280 × 720</option></select></label>
             <label class="select-field"><span>Frame rate</span><select id="export-fps"><option value="30">30 FPS</option><option value="60">60 FPS</option></select></label>
           </div>
@@ -376,9 +377,11 @@ async function startVideoExport() {
   result.hidden = true;
   setNotice('Preparing the scene for recording…');
   try {
+    const format = document.querySelector('#export-format').value;
     const blob = await generateVideo(snapshot, {
       resolution: document.querySelector('#export-resolution').value,
       fps: document.querySelector('#export-fps').value,
+      format,
       onProgress: (amount) => {
         const percent = Math.round(amount * 100);
         fill.style.width = `${percent}%`;
@@ -389,9 +392,11 @@ async function startVideoExport() {
     if (exportState.url) URL.revokeObjectURL(exportState.url);
     exportState.blob = blob;
     exportState.url = URL.createObjectURL(blob);
-    result.innerHTML = `<div class="video-ready"><span>✓ Video ready</span><span>${(blob.size / (1024 * 1024)).toFixed(1)} MB · WebM</span></div><video controls playsinline src="${exportState.url}"></video><a class="button button-secondary download-button" href="${exportState.url}" download="character-comparison.webm">⬇ Download video</a>`;
+    const extension = blob.type.includes('mp4') ? 'mp4' : 'webm';
+    const formatLabel = extension.toUpperCase();
+    result.innerHTML = `<div class="video-ready"><span>✓ Video ready</span><span>${(blob.size / (1024 * 1024)).toFixed(1)} MB · ${formatLabel}</span></div><video controls playsinline src="${exportState.url}"></video><a class="button button-secondary download-button" href="${exportState.url}" download="football-club-comparison.${extension}">⬇ Download ${formatLabel}</a>`;
     result.hidden = false;
-    setNotice('Your WebM video is ready to preview or download.');
+    setNotice(`Your ${formatLabel} video is ready to preview or download.`);
   } catch (error) {
     setNotice(error.message || 'The video could not be generated. Try a lower resolution or frame rate.', true);
   } finally {
