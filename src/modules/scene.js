@@ -523,9 +523,9 @@ function drawCharacter(ctx, character, isActive, highlightStyle = 'none', turnSe
   ctx.restore();
 }
 
-function drawPlayerLeaders(ctx, character, isActive, settings = {}) {
+function drawPlayerLeaders(ctx, character, isActive, turnSeconds, phase, settings = {}) {
   const leaders = character.leaders;
-  if (!leaders?.scorer || !leaders?.assister) return;
+  if (!isActive || phase !== 'hold' || !leaders?.scorer || !leaders?.assister) return;
   const { x } = character.position;
   const clubWidth = character.renderedDimensions.width || 520;
   const portraitW = 150;
@@ -536,7 +536,9 @@ function drawPlayerLeaders(ctx, character, isActive, settings = {}) {
     { player: leaders.assister, label: 'LEAGUE TOP ASSISTS', side: 1, tint: '#70dfff' },
   ];
   ctx.save();
-  ctx.globalAlpha = isActive ? 1 : 0.55;
+  const fadeIn = smoothstep(clamp(turnSeconds / 0.65, 0, 1));
+  if (fadeIn <= 0) return;
+  ctx.globalAlpha = fadeIn;
   entries.forEach(({ player, label, side, tint }) => {
     const px = x + side * offset;
     const image = getImage(`https://images.fotmob.com/image_resources/playerimages/${player.id}.png`);
@@ -559,7 +561,7 @@ function drawPlayerLeaders(ctx, character, isActive, settings = {}) {
     ctx.fillStyle = tint;
     ctx.lineWidth = 5;
     ctx.shadowColor = tint;
-    ctx.shadowBlur = isActive ? 16 : 0;
+    ctx.shadowBlur = 16;
     ctx.beginPath();
     const startX = x + side * (clubWidth * 0.5 - 12);
     const endX = px - side * 75;
@@ -936,7 +938,7 @@ export function drawScene(canvas, project, seconds) {
   if (frame.activeIndex >= 0) drawMotionGraphics(ctx, project.settings.motionGraphics, project.characters[frame.activeIndex], seconds);
   project.characters.forEach((character, index) => {
     drawCharacter(ctx, character, index === frame.activeIndex, highlight, frame.turnSeconds);
-    drawPlayerLeaders(ctx, character, index === frame.activeIndex, project.settings);
+    drawPlayerLeaders(ctx, character, index === frame.activeIndex, frame.turnSeconds, frame.phase, project.settings);
     drawLeagueTag(ctx, character, index === frame.activeIndex, project.settings);
   });
   if (frame.activeIndex >= 0) drawDetailCard(ctx, project.characters[frame.activeIndex], frame.detailBorderProgress, project.settings.detailAnimation, frame.detailAnimationElapsed, frame.detailAnimationDuration, project.settings);
