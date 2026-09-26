@@ -48,6 +48,7 @@ function getImage(asset) {
   if (asset?.imageElement?.complete && asset.imageElement.naturalWidth) return asset.imageElement;
   if (!imageCache.has(url)) {
     const image = new Image();
+    image.crossOrigin = 'anonymous';
     image.src = url;
     imageCache.set(url, image);
   }
@@ -526,13 +527,15 @@ function drawLeagueTag(ctx, character, isActive) {
   if (!league?.name) return;
   const emblem = getImage(league.emblem);
   const { x } = character.position;
+  const inverseZoom = 1 / Math.max(0.2, ctx.getTransform().a / (1920 / SCENE_WIDTH));
+  const iconSize = 50 * inverseZoom;
   ctx.save();
   ctx.globalAlpha = isActive ? 0.96 : 0.62;
-  if (emblem) ctx.drawImage(emblem, x - 27, BASELINE + 15, 54, 54);
+  if (emblem) ctx.drawImage(emblem, x - iconSize / 2, BASELINE + 8 * inverseZoom, iconSize, iconSize);
   ctx.fillStyle = '#34415a';
-  ctx.font = '600 22px system-ui, sans-serif';
+  ctx.font = `600 ${28 * inverseZoom}px system-ui, sans-serif`;
   ctx.textAlign = 'center';
-  ctx.fillText(league.name, x, BASELINE + 96, 460);
+  ctx.fillText(league.name, x, BASELINE + 91 * inverseZoom, 460 * inverseZoom);
   ctx.restore();
 }
 
