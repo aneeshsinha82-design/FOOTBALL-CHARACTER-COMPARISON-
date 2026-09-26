@@ -521,6 +521,21 @@ function drawCharacter(ctx, character, isActive, highlightStyle = 'none', turnSe
   ctx.restore();
 }
 
+function drawLeagueTag(ctx, character, isActive) {
+  const league = character.league;
+  if (!league?.name) return;
+  const emblem = getImage(league.emblem);
+  const { x } = character.position;
+  ctx.save();
+  ctx.globalAlpha = isActive ? 0.96 : 0.62;
+  if (emblem) ctx.drawImage(emblem, x - 27, BASELINE + 15, 54, 54);
+  ctx.fillStyle = '#34415a';
+  ctx.font = '600 22px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(league.name, x, BASELINE + 96, 460);
+  ctx.restore();
+}
+
 function traceRoundedRectReveal(ctx, x, y, width, height, radius, progress) {
   const points = [{ x: x + radius, y }];
   const addLine = (endX, endY) => points.push({ x: endX, y: endY });
@@ -851,7 +866,10 @@ export function drawScene(canvas, project, seconds) {
   ctx.fillRect(0, BASELINE, layout.width, 11);
   const highlight = project.settings.characterHighlight || 'none';
   if (frame.activeIndex >= 0) drawMotionGraphics(ctx, project.settings.motionGraphics, project.characters[frame.activeIndex], seconds);
-  project.characters.forEach((character, index) => drawCharacter(ctx, character, index === frame.activeIndex, highlight, frame.turnSeconds));
+  project.characters.forEach((character, index) => {
+    drawCharacter(ctx, character, index === frame.activeIndex, highlight, frame.turnSeconds);
+    drawLeagueTag(ctx, character, index === frame.activeIndex);
+  });
   if (frame.activeIndex >= 0) drawDetailCard(ctx, project.characters[frame.activeIndex], frame.detailBorderProgress, project.settings.detailAnimation, frame.detailAnimationElapsed, frame.detailAnimationDuration);
 
   ctx.setTransform(scaleX, 0, 0, scaleY, 0, 0);
