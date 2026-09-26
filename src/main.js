@@ -5,14 +5,14 @@ import { generateVideo } from './modules/video-export.js';
 const app = document.querySelector('#app');
 const clubLineup = [
   { name: 'SC Freiburg', goals: 12, matches: 4, crestId: 17, league: 'Bundesliga', leagueCode: 'BL1', leaders: { scorer: { name: 'Igor Matanović', id: 1210893 }, assister: { name: 'Matthias Ginter', id: 303912 } } },
-  { name: 'Villarreal CF', goals: 13, matches: 7, crestId: 94, league: 'LaLiga', leagueCode: 'PD', leaders: { scorer: { name: 'Pape Gueye', id: 844544 }, assister: { name: 'Alberto Moleiro', id: 1305030 } } },
+  { name: 'Villarreal CF', goals: 13, matches: 7, crestId: 94, league: 'LaLiga', leagueCode: 'PD', leaders: { scorer: { name: 'Pape Gueye', id: 844544 }, assister: { name: 'Alberto Moleiro', id: 1184694 } } },
   { name: 'Manchester City', goals: 13, matches: 5, crestId: 65, league: 'Premier League', leagueCode: 'PL', leaders: { scorer: { name: 'Erling Haaland', id: 737066 }, assister: { name: 'Antoine Semenyo', id: 933576 } } },
   { name: 'FC Bayern München', goals: 14, matches: 4, crestId: 5, league: 'Bundesliga', leagueCode: 'BL1', leaders: { scorer: { name: 'Michael Olise', id: 1029063 }, assister: { name: 'Joshua Kimmich', id: 460632 } } },
   { name: 'AS Roma', goals: 14, matches: 5, crestId: 100, league: 'Serie A', leagueCode: 'SA', leaders: { scorer: { name: 'Donyell Malen', id: 660301 }, assister: { name: 'Paulo Dybala', id: 325916 } } },
   { name: 'Inter', goals: 15, matches: 5, crestId: 108, league: 'Serie A', leagueCode: 'SA', leaders: { scorer: { name: 'Hakan Çalhanoğlu', id: 304733 }, assister: { name: 'Andy Diouf', id: 1254297 } } },
   { name: 'Atlético de Madrid', goals: 16, matches: 7, crestId: 78, league: 'LaLiga', leagueCode: 'PD', leaders: { scorer: { name: 'Álex Baena', id: 942372 }, assister: { name: 'Dávid Hancko', id: 727897 } } },
   { name: 'Brighton & Hove Albion', goals: 16, matches: 5, crestId: 397, league: 'Premier League', leagueCode: 'PL', leaders: { scorer: { name: 'Jack Hinshelwood', id: 1251334 }, assister: { name: 'Diego Gómez', id: 1354561 } } },
-  { name: 'Real Madrid', goals: 18, matches: 7, crestId: 86, league: 'LaLiga', leagueCode: 'PD', leaders: { scorer: { name: 'Kylian Mbappé', id: 701154 }, assister: { name: 'Vinícius Júnior', id: 1056983 } } },
+  { name: 'Real Madrid', goals: 18, matches: 7, crestId: 86, league: 'LaLiga', leagueCode: 'PD', leaders: { scorer: { name: 'Kylian Mbappé', id: 701154 }, assister: { name: 'Vinícius Júnior', id: 846033 } } },
   { name: 'FC Barcelona', goals: 31, matches: 7, crestId: 81, league: 'LaLiga', leagueCode: 'PD', leaders: { scorer: { name: 'Raphinha', id: 696679 }, assister: { name: 'Lamine Yamal', id: 1467236 } } },
 ];
 
