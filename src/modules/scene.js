@@ -553,7 +553,7 @@ function drawPlayerLeaders(ctx, character, isActive, settings = {}) {
       ctx.fillStyle = '#ffffff';
       ctx.font = `700 36px ${settings.fontFamily || 'system-ui, sans-serif'}`;
       ctx.textAlign = 'center';
-      ctx.fillText(player.name.split(/\\s+/).map((part) => part[0]).slice(0, 2).join(''), px, BASELINE - 132);
+      ctx.fillText(player.name.split(/\s+/).map((part) => part[0]).slice(0, 2).join(''), px, BASELINE - 132);
     }
     ctx.strokeStyle = tint;
     ctx.fillStyle = tint;
@@ -569,8 +569,8 @@ function drawPlayerLeaders(ctx, character, isActive, settings = {}) {
     ctx.stroke();
     ctx.beginPath();
     ctx.moveTo(endX, arrowY);
-    ctx.lineTo(endX - side * 20, arrowY - 13);
-    ctx.lineTo(endX - side * 20, arrowY + 13);
+    ctx.lineTo(endX + side * 20, arrowY - 13);
+    ctx.lineTo(endX + side * 20, arrowY + 13);
     ctx.closePath();
     ctx.fill();
     ctx.shadowBlur = 0;
