@@ -1,18 +1,23 @@
 import { drawScene, getTimelineDuration, SCENE_HEIGHT, SCENE_WIDTH } from './scene.js';
 
-function supportedMimeType() {
+function supportedMimeType(format) {
   if (typeof MediaRecorder === 'undefined') throw new Error('Video recording is not available in this browser. Try the latest version of Chrome.');
-  const candidates = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
+  const candidates = format === 'mp4'
+    ? ['video/mp4;codecs=avc1.42E01E', 'video/mp4;codecs=avc1', 'video/mp4']
+    : ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
   const type = candidates.find((candidate) => MediaRecorder.isTypeSupported(candidate));
-  if (!type) throw new Error('This browser does not support WebM video recording.');
+  if (!type) {
+    if (format === 'mp4') throw new Error('MP4 recording is not supported by this browser. Choose WebM or try the latest version of Chrome.');
+    throw new Error('This browser does not support WebM video recording.');
+  }
   return type;
 }
 
-export function generateVideo(project, { resolution, fps, onProgress }) {
+export function generateVideo(project, { resolution, fps, format = 'mp4', onProgress }) {
   return new Promise((resolve, reject) => {
     try {
       if (!project.characters.length) throw new Error('Add at least one character before generating a video.');
-      const mimeType = supportedMimeType();
+      const mimeType = supportedMimeType(format);
       const duration = getTimelineDuration(project);
       const [width, height] = resolution.split('x').map(Number);
       const canvas = document.createElement('canvas');
