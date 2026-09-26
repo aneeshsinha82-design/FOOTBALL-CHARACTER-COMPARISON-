@@ -522,7 +522,7 @@ function drawCharacter(ctx, character, isActive, highlightStyle = 'none', turnSe
   ctx.restore();
 }
 
-function drawLeagueTag(ctx, character, isActive) {
+function drawLeagueTag(ctx, character, isActive, settings = {}) {
   const league = character.league;
   if (!league?.name) return;
   const emblem = getImage(league.emblem);
@@ -533,7 +533,7 @@ function drawLeagueTag(ctx, character, isActive) {
   ctx.globalAlpha = isActive ? 0.96 : 0.62;
   if (emblem) ctx.drawImage(emblem, x - iconSize / 2, BASELINE + 8 * inverseZoom, iconSize, iconSize);
   ctx.fillStyle = '#34415a';
-  ctx.font = `600 ${28 * inverseZoom}px system-ui, sans-serif`;
+  ctx.font = `600 ${28 * inverseZoom}px ${settings.fontFamily || 'system-ui, sans-serif'}`;
   ctx.textAlign = 'center';
   ctx.fillText(league.name, x, BASELINE + 91 * inverseZoom, 460 * inverseZoom);
   ctx.restore();
@@ -584,7 +584,8 @@ function traceRoundedRectReveal(ctx, x, y, width, height, radius, progress) {
   ctx.stroke();
 }
 
-function drawDetailCallouts(ctx, character, animationElapsed, animationDuration) {
+function drawDetailCallouts(ctx, character, animationElapsed, animationDuration, settings = {}) {
+  const fontFamily = settings.fontFamily || 'system-ui, sans-serif';
   const details = character.details || [];
   if (!details.length) return;
   const cardWidth = 360;
@@ -668,12 +669,12 @@ function drawDetailCallouts(ctx, character, animationElapsed, animationDuration)
     ctx.fillRect(side > 0 ? cardX : cardX + cardWidth - 5, cardY + 14, 5, cardHeight - 28);
     const imageSpace = detail.image ? 70 : 0;
     ctx.textAlign = 'start';
-    ctx.fillStyle = '#f6f9ff';
-    ctx.font = '700 22px system-ui, sans-serif';
+    ctx.fillStyle = settings.detailsColor || '#f6f9ff';
+    ctx.font = `700 22px ${fontFamily}`;
     ctx.fillText(detail.label || `Detail ${index + 1}`, cardX + 22, cardY + (detail.value ? 34 : cardHeight / 2 + 8), cardWidth - imageSpace - 44);
     if (detail.value) {
-      ctx.fillStyle = '#cad8ef';
-      ctx.font = '400 19px system-ui, sans-serif';
+      ctx.fillStyle = settings.detailsColor || '#f6f9ff';
+      ctx.font = `400 19px ${fontFamily}`;
       ctx.fillText(detail.value, cardX + 22, cardY + 62, cardWidth - imageSpace - 44);
     }
     if (detail.image) {
@@ -688,9 +689,10 @@ function drawDetailCallouts(ctx, character, animationElapsed, animationDuration)
     ctx.restore();
   });
 }
-function drawDetailCard(ctx, character, entranceProgress = 1, animationStyle = 'draw', animationElapsed = 0, animationDuration = 0.85) {
+function drawDetailCard(ctx, character, entranceProgress = 1, animationStyle = 'draw', animationElapsed = 0, animationDuration = 0.85, settings = {}) {
+  const fontFamily = settings.fontFamily || 'system-ui, sans-serif';
   if (animationStyle === 'callouts') {
-    drawDetailCallouts(ctx, character, animationElapsed, animationDuration);
+    drawDetailCallouts(ctx, character, animationElapsed, animationDuration, settings);
     return;
   }
   const boxWidth = 460;
@@ -743,8 +745,8 @@ function drawDetailCard(ctx, character, entranceProgress = 1, animationStyle = '
   ctx.beginPath();
   ctx.roundRect(boxX, boxY, boxWidth, 78, [22, 22, 0, 0]);
   ctx.fill();
-  ctx.fillStyle = '#ffffff';
-  ctx.font = '700 31px system-ui, sans-serif';
+  ctx.fillStyle = settings.clubNameColor || '#ffffff';
+  ctx.font = `700 31px ${fontFamily}`;
   ctx.textAlign = 'center';
   if (sequentialReveal) {
     const nameStart = Math.min(0.08, animationDuration * 0.12);
@@ -798,13 +800,13 @@ function drawDetailCard(ctx, character, entranceProgress = 1, animationStyle = '
     ctx.fill();
     ctx.stroke();
 
-    ctx.fillStyle = '#f3f6ff';
-    ctx.font = '600 23px system-ui, sans-serif';
+    ctx.fillStyle = settings.detailsColor || '#f6f9ff';
+    ctx.font = `600 23px ${fontFamily}`;
     ctx.textAlign = detail.image ? 'start' : 'center';
     ctx.fillText(detail.label || `Detail ${index + 1}`, detail.image ? rowX + 18 : boxX + boxWidth / 2, rowY + (detail.value ? 29 : rowHeight / 2 + 8), detail.image ? 250 : rowWidth - 28);
     if (detail.value) {
-      ctx.fillStyle = '#c7d7f2';
-      ctx.font = '400 21px system-ui, sans-serif';
+      ctx.fillStyle = settings.detailsColor || '#f6f9ff';
+      ctx.font = `400 21px ${fontFamily}`;
       ctx.fillText(detail.value, detail.image ? rowX + 18 : boxX + boxWidth / 2, rowY + 55, detail.image ? 250 : rowWidth - 28);
     }
     ctx.textAlign = 'start';
@@ -871,9 +873,9 @@ export function drawScene(canvas, project, seconds) {
   if (frame.activeIndex >= 0) drawMotionGraphics(ctx, project.settings.motionGraphics, project.characters[frame.activeIndex], seconds);
   project.characters.forEach((character, index) => {
     drawCharacter(ctx, character, index === frame.activeIndex, highlight, frame.turnSeconds);
-    drawLeagueTag(ctx, character, index === frame.activeIndex);
+    drawLeagueTag(ctx, character, index === frame.activeIndex, project.settings);
   });
-  if (frame.activeIndex >= 0) drawDetailCard(ctx, project.characters[frame.activeIndex], frame.detailBorderProgress, project.settings.detailAnimation, frame.detailAnimationElapsed, frame.detailAnimationDuration);
+  if (frame.activeIndex >= 0) drawDetailCard(ctx, project.characters[frame.activeIndex], frame.detailBorderProgress, project.settings.detailAnimation, frame.detailAnimationElapsed, frame.detailAnimationDuration, project.settings);
 
   ctx.setTransform(scaleX, 0, 0, scaleY, 0, 0);
   if (!project.characters.length) {
