@@ -29,12 +29,16 @@ export async function createImageAsset(file) {
 
 const CLUB_LOGO_BASE = 'https://crests.football-data.org/';
 
-export function createClubCharacter({ name, goals, matches, crestId }) {
+export function createClubCharacter({ name, goals, matches, crestId, league, leagueCode }) {
   const logoUrl = `${CLUB_LOGO_BASE}${crestId}.png`;
   const imageElement = new Image();
   imageElement.crossOrigin = 'anonymous';
   imageElement.addEventListener('load', () => window.dispatchEvent(new Event('club-logo-loaded')), { once: true });
   imageElement.src = logoUrl;
+  const leagueEmblem = new Image();
+  leagueEmblem.crossOrigin = 'anonymous';
+  leagueEmblem.addEventListener('load', () => window.dispatchEvent(new Event('club-logo-loaded')), { once: true });
+  leagueEmblem.src = `${CLUB_LOGO_BASE}${leagueCode}.png`;
   const details = [
     { label: 'Goals scored', value: String(goals) },
     { label: 'Matches played', value: String(matches) },
@@ -46,6 +50,10 @@ export function createClubCharacter({ name, goals, matches, crestId }) {
     name,
     goals,
     matches,
+    league: {
+      name: league,
+      emblem: { url: leagueEmblem.src, width: 128, height: 128, imageElement: leagueEmblem },
+    },
     image: { id: crypto.randomUUID(), name: `${name} crest.png`, url: logoUrl, width: 512, height: 512, imageElement, remote: true },
     position: { x: 0, y: 0 },
     renderedDimensions: { width: 0, height: 0 },
