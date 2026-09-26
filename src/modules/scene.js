@@ -46,7 +46,8 @@ function getImage(asset) {
   const sourceUrl = typeof asset === 'string' ? asset : asset?.url;
   if (!sourceUrl) return null;
   if (asset?.imageElement?.complete && asset.imageElement.naturalWidth) return asset.imageElement;
-  const url = /^https?:\\/\\//i.test(sourceUrl)
+  const isRemote = sourceUrl.startsWith('http://') || sourceUrl.startsWith('https://');
+  const url = isRemote
     ? `https://wsrv.nl/?url=${encodeURIComponent(sourceUrl)}&output=png`
     : sourceUrl;
   if (!imageCache.has(url)) {
