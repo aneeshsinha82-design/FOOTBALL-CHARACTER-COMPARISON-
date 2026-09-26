@@ -66,8 +66,13 @@ function detailBoxHeight(character) {
 }
 
 export function getSceneLayout(project) {
+  const goalCounts = project.characters.map((character) => Number(character.goals)).filter(Number.isFinite);
+  const minGoals = goalCounts.length ? Math.min(...goalCounts) : 0;
+  const maxGoals = goalCounts.length ? Math.max(...goalCounts) : 0;
   const maxWidth = project.characters.reduce((max, character) => {
-    const height = character.image ? Math.max(300, character.image.height * 0.5) : 580;
+    const height = Number.isFinite(Number(character.goals)) && goalCounts.length
+      ? (maxGoals === minGoals ? 520 : 360 + ((Number(character.goals) - minGoals) / (maxGoals - minGoals)) * 340)
+      : character.image ? Math.max(300, character.image.height * 0.5) : 580;
     const width = character.image ? height * character.image.width / character.image.height : height * 0.48;
     character.renderedDimensions = { width, height };
     return Math.max(max, width);
