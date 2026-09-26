@@ -1,11 +1,24 @@
-import { createCharacter, createImageAsset, releaseAsset } from './modules/characters.js';
+import { createCharacter, createClubCharacter, createImageAsset, releaseAsset } from './modules/characters.js';
 import { drawScene, getTimelineDuration, MOTION_GRAPHIC_PRESETS } from './modules/scene.js?v=15';
 import { generateVideo } from './modules/video-export.js';
 
 const app = document.querySelector('#app');
+const clubLineup = [
+  { name: 'SC Freiburg', goals: 12, matches: 4, crestId: 17 },
+  { name: 'Villarreal CF', goals: 13, matches: 7, crestId: 94 },
+  { name: 'Manchester City', goals: 13, matches: 5, crestId: 65 },
+  { name: 'FC Bayern München', goals: 14, matches: 4, crestId: 5 },
+  { name: 'AS Roma', goals: 14, matches: 5, crestId: 100 },
+  { name: 'Inter', goals: 15, matches: 5, crestId: 108 },
+  { name: 'Atlético de Madrid', goals: 16, matches: 7, crestId: 78 },
+  { name: 'Brighton & Hove Albion', goals: 16, matches: 5, crestId: 397 },
+  { name: 'Real Madrid', goals: 18, matches: 7, crestId: 86 },
+  { name: 'FC Barcelona', goals: 31, matches: 7, crestId: 81 },
+];
+
 const project = {
   background: null,
-  characters: [],
+  characters: clubLineup.map(createClubCharacter),
   settings: {
     cameraSpeed: 1,
     displayDuration: 3,
@@ -29,7 +42,7 @@ const motionGraphicOptions = ['<option value="none">None</option>', ...[...new S
 app.innerHTML = `
   <div class="studio-app">
     <header class="topbar">
-      <a class="brand" href="#" aria-label="Character Studio home"><span class="brand-mark">C</span>Character<span class="brand-light">Studio</span></a>
+      <a class="brand" href="#" aria-label="Character Studio home"><span class="brand-mark">C</span>Football<span class="brand-light">Club Comparison</span></a>
       <div class="topbar-actions"><span class="save-state"><i></i> Session project</span><button class="button button-primary top-add" data-action="add-character">＋ Add Character</button></div>
     </header>
 
@@ -51,7 +64,7 @@ app.innerHTML = `
       </aside>
 
       <section class="main-column">
-        <div class="welcome-row"><div><p class="eyebrow">CHARACTER COMPARISON STUDIO</p><h1>Bring your lineup to life.</h1><p class="welcome-copy">Set up your characters, then preview a smooth left-to-right comparison.</p></div><div class="workflow-pill"><span>01</span> Build your scene</div></div>
+        <div class="welcome-row"><div><p class="eyebrow">EUROPEAN LEAGUE GOALS · 2026/27</p><h1>Compare Europe’s top clubs.</h1><p class="welcome-copy">League goals, matches played, and goals per game. Ordered from fewest goals to most.</p></div><div class="workflow-pill"><span>01</span> Build your scene</div></div>
 
         <section class="stage-panel">
           <div class="stage-heading"><div><p class="eyebrow">LIVE SCENE</p><h2 id="active-label">Add characters to begin</h2></div><div class="stage-badge"><span class="live-dot"></span><span id="phase-label">Ready for preview</span></div></div>
@@ -86,7 +99,7 @@ app.innerHTML = `
           <p id="export-message" class="export-message" role="status" aria-live="polite"></p>
           <div id="video-result" class="video-result" hidden></div>
         </section>
-        <footer class="footer"><span>Character Studio</span><span>Images stay in this browser session.</span></footer>
+        <footer class="footer"><span>Football Club Comparison</span><span>League statistics · 2026/27 snapshot</span></footer>
       </section>
     </main>
   </div>
@@ -486,6 +499,7 @@ window.addEventListener('beforeunload', () => {
   if (exportState.url) URL.revokeObjectURL(exportState.url);
 });
 
+window.addEventListener('club-logo-loaded', renderScene);
 renderCharacterList();
 renderEditor();
 renderBackground();
