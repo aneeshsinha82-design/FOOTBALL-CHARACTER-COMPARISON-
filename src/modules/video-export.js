@@ -12,7 +12,7 @@ async function loadFfmpeg() {
       const ffmpeg = new FFmpeg();
       const coreBase = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd';
       const toBlobURL = async (url, type) => {
-        const response = await fetch(url);
+        const response = await fetch(url, { cache: 'force-cache' });
         if (!response.ok) throw new Error('The MP4 encoder could not be downloaded. Check your internet connection and try again.');
         return URL.createObjectURL(new Blob([await response.arrayBuffer()], { type }));
       };
@@ -31,7 +31,7 @@ async function loadFfmpeg() {
 }
 
 async function transcodeToMp4(sourceBlob, duration, width, height, fps, onProgress, onStatus) {
-  onStatus?.('Loading the MP4 encoder (about 31 MB, first export only)…');
+  onStatus?.('Converting the recorded WebM into a real MP4…');
   const ffmpeg = await loadFfmpeg();
   const inputName = 'comparison-source.webm';
   const outputName = 'football-club-comparison.mp4';
@@ -61,17 +61,26 @@ async function transcodeToMp4(sourceBlob, duration, width, height, fps, onProgre
         '-fps_mode', 'cfr',
         '-pix_fmt', 'yuv420p',
         '-movflags', '+faststart',
+        '-f', 'mp4',
         outputName,
       ]);
     } finally {
       ffmpeg.off('log', handleLog);
     }
+
     const encoded = await ffmpeg.readFile(outputName);
+    if (!encoded?.length) throw new Error('FFmpeg produced an empty MP4 file.');
+
+    // Verify the MP4 container before handing it to the browser download.
+    // ISO-BMFF files contain an "ftyp" box near the beginning of the file.
+    const header = new TextDecoder().decode(encoded.slice(4, 12));
+    if (!header.includes('ftyp')) throw new Error('The encoder did not produce a valid MP4 container.');
+
     onProgress?.(1);
     return new Blob([encoded], { type: 'video/mp4' });
   } catch (error) {
     const detail = error?.message || 'Encoding failed.';
-    throw new Error(`The MP4 could not be encoded. Try 1280 × 720 at 30 FPS if the browser runs out of memory. ${detail}`);
+    throw new Error(`The MP4 could not be created. Try 1280 × 720 at 30 FPS if the browser runs out of memory. ${detail}`);
   } finally {
     await Promise.allSettled([
       ffmpeg.deleteFile(inputName),
@@ -84,7 +93,11 @@ export function generateVideo(project, { resolution, fps, format = 'mp4', onProg
   return new Promise((resolve, reject) => {
     try {
       if (!project.characters.length) throw new Error('Add at least one character before generating a video.');
-      const recordingFormat = format === 'mp4' ? 'webm' : format;
+
+      const normalizedFormat = String(format).toLowerCase() === 'webm' ? 'webm' : 'mp4';
+      // WebM is recorded natively by MediaRecorder. MP4 is intentionally recorded
+      // to WebM first, then converted to H.264 MP4 in-browser with FFmpeg WASM.
+      const recordingFormat = 'webm';
       const mimeType = supportedMimeType(recordingFormat);
       const duration = getTimelineDuration(project);
       const [width, height] = resolution.split('x').map(Number);
@@ -108,9 +121,12 @@ export function generateVideo(project, { resolution, fps, format = 'mp4', onProg
         if (!chunks.length) return reject(new Error('The video export finished without recording any frames.'));
         const sourceBlob = new Blob(chunks, { type: mimeType });
         try {
-          resolve(format === 'mp4'
-            ? await transcodeToMp4(sourceBlob, duration, width, height, numericFps, onProgress, onStatus)
-            : sourceBlob);
+          if (normalizedFormat === 'mp4') {
+            resolve(await transcodeToMp4(sourceBlob, duration, width, height, numericFps, onProgress, onStatus));
+          } else {
+            onProgress?.(1);
+            resolve(new Blob([sourceBlob], { type: 'video/webm' }));
+          }
         } catch (error) {
           reject(error);
         }
@@ -123,7 +139,7 @@ export function generateVideo(project, { resolution, fps, format = 'mp4', onProg
       const render = (now) => {
         const elapsed = Math.min(duration, (now - start) / 1000);
         drawScene(canvas, project, elapsed);
-        onProgress(duration ? (elapsed / duration) * (format === 'mp4' ? 0.8 : 1) : 1);
+        onProgress(duration ? (elapsed / duration) * (normalizedFormat === 'mp4' ? 0.8 : 1) : 1);
         if (elapsed >= duration) {
           recorder.stop();
           return;
