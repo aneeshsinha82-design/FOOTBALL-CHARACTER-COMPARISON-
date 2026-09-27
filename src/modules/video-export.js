@@ -30,7 +30,7 @@ async function loadFfmpeg() {
   return ffmpegLoadPromise;
 }
 
-async function transcodeToMp4(sourceBlob, duration, onProgress, onStatus) {
+async function transcodeToMp4(sourceBlob, duration, width, height, fps, onProgress, onStatus) {
   onStatus?.('Loading the MP4 encoder (about 31 MB, first export only)…');
   const ffmpeg = await loadFfmpeg();
   const inputName = 'comparison-source.webm';
@@ -42,22 +42,22 @@ async function transcodeToMp4(sourceBlob, duration, onProgress, onStatus) {
       const match = message.match(/time=(\d+):(\d+):(\d+(?:\.\d+)?)/);
       if (match) {
         const seconds = Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3]);
-        onProgress?.(0.82 + Math.min(seconds / duration, 1) * 0.17);
+        onProgress?.(0.82 + Math.min(seconds / Math.max(duration, 0.001), 1) * 0.17);
       }
     };
     ffmpeg.on('log', handleLog);
-    onStatus?.('Encoding a constant 60 FPS MP4…');
+    onStatus?.(`Encoding ${width} × ${height} H.264 MP4 at ${fps} FPS…`);
     try {
       await ffmpeg.exec([
         '-i', inputName,
         '-map', '0:v:0',
         '-an',
-        '-vf', `fps=60,scale=1920:1080:flags=lanczos,format=yuv420p`,
+        '-vf', `fps=${fps},scale=${width}:${height}:flags=lanczos,format=yuv420p`,
         '-c:v', 'libx264',
         '-profile:v', 'high',
         '-preset', 'medium',
         '-crf', '18',
-        '-r', '60',
+        '-r', String(fps),
         '-fps_mode', 'cfr',
         '-pix_fmt', 'yuv420p',
         '-movflags', '+faststart',
@@ -68,10 +68,10 @@ async function transcodeToMp4(sourceBlob, duration, onProgress, onStatus) {
     }
     const encoded = await ffmpeg.readFile(outputName);
     onProgress?.(1);
-    return new Blob([encoded.buffer], { type: 'video/mp4' });
+    return new Blob([encoded], { type: 'video/mp4' });
   } catch (error) {
     const detail = error?.message || 'Encoding failed.';
-    throw new Error(`The MP4 could not be encoded. Try a lower resolution or export as WebM. ${detail}`);
+    throw new Error(`The MP4 could not be encoded. Try 1280 × 720 at 30 FPS if the browser runs out of memory. ${detail}`);
   } finally {
     await Promise.allSettled([
       ffmpeg.deleteFile(inputName),
@@ -88,10 +88,11 @@ export function generateVideo(project, { resolution, fps, format = 'mp4', onProg
       const mimeType = supportedMimeType(recordingFormat);
       const duration = getTimelineDuration(project);
       const [width, height] = resolution.split('x').map(Number);
+      const numericFps = Number(fps);
       const canvas = document.createElement('canvas');
       canvas.width = width;
       canvas.height = height;
-      const stream = canvas.captureStream(Number(fps));
+      const stream = canvas.captureStream(numericFps);
       const recorder = new MediaRecorder(stream, { mimeType });
       const chunks = [];
       let animationFrame = 0;
@@ -107,7 +108,9 @@ export function generateVideo(project, { resolution, fps, format = 'mp4', onProg
         if (!chunks.length) return reject(new Error('The video export finished without recording any frames.'));
         const sourceBlob = new Blob(chunks, { type: mimeType });
         try {
-          resolve(format === 'mp4' ? await transcodeToMp4(sourceBlob, duration, onProgress, onStatus) : sourceBlob);
+          resolve(format === 'mp4'
+            ? await transcodeToMp4(sourceBlob, duration, width, height, numericFps, onProgress, onStatus)
+            : sourceBlob);
         } catch (error) {
           reject(error);
         }
