@@ -12,13 +12,14 @@ async function loadFfmpeg() {
       const ffmpeg = new FFmpeg();
       const coreBase = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd';
       const toBlobURL = async (url, type) => {
-        const response = await fetch(url, { cache: 'force-cache' });
-        if (!response.ok) throw new Error('The MP4 encoder could not be downloaded. Check your internet connection and try again.');
+        const response = await fetch(url, { cache: 'no-store' });
+        if (!response.ok) throw new Error(`Could not download FFmpeg component (${response.status}).`);
         return URL.createObjectURL(new Blob([await response.arrayBuffer()], { type }));
       };
       await ffmpeg.load({
         coreURL: await toBlobURL(`${coreBase}/ffmpeg-core.js`, 'text/javascript'),
         wasmURL: await toBlobURL(`${coreBase}/ffmpeg-core.wasm`, 'application/wasm'),
+        workerURL: await toBlobURL(`${coreBase}/ffmpeg-core.worker.js`, 'text/javascript'),
       });
       ffmpegInstance = ffmpeg;
       return ffmpeg;
@@ -31,7 +32,7 @@ async function loadFfmpeg() {
 }
 
 async function transcodeToMp4(sourceBlob, duration, width, height, fps, onProgress, onStatus) {
-  onStatus?.('Converting the recorded WebM into a real MP4…');
+  onStatus?.('Loading the MP4 encoder…');
   const ffmpeg = await loadFfmpeg();
   const inputName = 'comparison-source.webm';
   const outputName = 'football-club-comparison.mp4';
@@ -70,17 +71,13 @@ async function transcodeToMp4(sourceBlob, duration, width, height, fps, onProgre
 
     const encoded = await ffmpeg.readFile(outputName);
     if (!encoded?.length) throw new Error('FFmpeg produced an empty MP4 file.');
-
-    // Verify the MP4 container before handing it to the browser download.
-    // ISO-BMFF files contain an "ftyp" box near the beginning of the file.
     const header = new TextDecoder().decode(encoded.slice(4, 12));
     if (!header.includes('ftyp')) throw new Error('The encoder did not produce a valid MP4 container.');
-
     onProgress?.(1);
     return new Blob([encoded], { type: 'video/mp4' });
   } catch (error) {
     const detail = error?.message || 'Encoding failed.';
-    throw new Error(`The MP4 could not be created. Try 1280 × 720 at 30 FPS if the browser runs out of memory. ${detail}`);
+    throw new Error(`The MP4 could not be created. ${detail} Try 1280 × 720 at 30 FPS if the browser runs out of memory.`);
   } finally {
     await Promise.allSettled([
       ffmpeg.deleteFile(inputName),
@@ -93,12 +90,8 @@ export function generateVideo(project, { resolution, fps, format = 'mp4', onProg
   return new Promise((resolve, reject) => {
     try {
       if (!project.characters.length) throw new Error('Add at least one character before generating a video.');
-
       const normalizedFormat = String(format).toLowerCase() === 'webm' ? 'webm' : 'mp4';
-      // WebM is recorded natively by MediaRecorder. MP4 is intentionally recorded
-      // to WebM first, then converted to H.264 MP4 in-browser with FFmpeg WASM.
-      const recordingFormat = 'webm';
-      const mimeType = supportedMimeType(recordingFormat);
+      const mimeType = supportedMimeType('webm');
       const duration = getTimelineDuration(project);
       const [width, height] = resolution.split('x').map(Number);
       const numericFps = Number(fps);
@@ -114,11 +107,11 @@ export function generateVideo(project, { resolution, fps, format = 'mp4', onProg
       recorder.ondataavailable = (event) => {
         if (event.data.size) chunks.push(event.data);
       };
-      recorder.onerror = () => reject(new Error('The browser stopped recording before the video was complete.'));
+      recorder.onerror = () => reject(new Error('The browser stopped recording. Try Chrome and allow the page to use its normal browser storage/network access.'));
       recorder.onstop = async () => {
         cancelAnimationFrame(animationFrame);
         stream.getTracks().forEach((track) => track.stop());
-        if (!chunks.length) return reject(new Error('The video export finished without recording any frames.'));
+        if (!chunks.length) return reject(new Error('No video frames were recorded.'));
         const sourceBlob = new Blob(chunks, { type: mimeType });
         try {
           if (normalizedFormat === 'mp4') {
@@ -154,15 +147,12 @@ export function generateVideo(project, { resolution, fps, format = 'mp4', onProg
 }
 
 function supportedMimeType(format) {
-  if (typeof MediaRecorder === 'undefined') throw new Error('Video recording is not available in this browser. Try the latest version of Chrome.');
+  if (typeof MediaRecorder === 'undefined') throw new Error('Video recording is not available. Try the latest Chrome.');
   const candidates = format === 'mp4'
     ? ['video/mp4;codecs=avc1.42E01E', 'video/mp4;codecs=avc1', 'video/mp4']
     : ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
   const type = candidates.find((candidate) => MediaRecorder.isTypeSupported(candidate));
-  if (!type) {
-    if (format === 'mp4') throw new Error('MP4 recording is not supported by this browser. Choose WebM or try the latest version of Chrome.');
-    throw new Error('This browser does not support WebM video recording.');
-  }
+  if (!type) throw new Error(`This browser does not support ${format.toUpperCase()} video recording.`);
   return type;
 }
 
