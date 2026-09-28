@@ -6,9 +6,43 @@
     <meta name="theme-color" content="#f5f6f8" />
     <meta name="description" content="Compare the top-scoring clubs across Europe’s five major leagues in the 2026/27 season." />
     <link rel="stylesheet" href="./src/style.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <title>Football Club Comparison</title>
   </head>
   <body>
+    <!-- CONTROL PANEL FOR SIZING & VIDEO EXPORT -->
+    <div id="custom-tools-panel" style="background:#1e293b; color:#fff; padding:16px; margin:16px auto; max-width:900px; border-radius:12px; border:1px solid #334155; font-family:sans-serif;">
+      <div style="display:flex; justify-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
+        <h3 style="margin:0; font-size:14px; color:#fbbf24; text-transform:uppercase; letter-spacing:1px;">⚙️ Card Sizing & Export Tools</h3>
+        <button id="btn-export-video" style="background:#e11d48; color:#fff; border:none; padding:8px 16px; border-radius:6px; font-weight:bold; cursor:pointer;">🎥 Export MP4 Video</button>
+      </div>
+
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; margin-bottom:12px;">
+        <label style="font-size:12px; display:flex; flex-direction:column; gap:4px;">
+          Box Width: <span id="val-box-width" style="color:#fbbf24;">380px</span>
+          <input type="range" id="detail-box-width" min="260" max="600" step="10" value="380">
+        </label>
+
+        <label style="font-size:12px; display:flex; flex-direction:column; gap:4px;">
+          Box Padding: <span id="val-box-padding" style="color:#fbbf24;">1.25rem</span>
+          <input type="range" id="detail-box-padding" min="0.5" max="3" step="0.1" value="1.25">
+        </label>
+
+        <label style="font-size:12px; display:flex; flex-direction:column; gap:4px;">
+          Text Scale: <span id="val-text-scale" style="color:#fbbf24;">1.00x</span>
+          <input type="range" id="detail-text-scale" min="0.75" max="1.8" step="0.05" value="1.0">
+        </label>
+      </div>
+
+      <div style="display:flex; gap:8px; align-items:center; border-top:1px solid #334155; padding-top:8px;">
+        <span style="font-size:12px; color:#94a3b8;">Presets:</span>
+        <button type="button" class="preset-btn" data-preset="compact" style="background:#334155; color:#fff; border:none; padding:4px 10px; border-radius:4px; font-size:12px; cursor:pointer;">Compact</button>
+        <button type="button" class="preset-btn" data-preset="medium" style="background:#334155; color:#fff; border:none; padding:4px 10px; border-radius:4px; font-size:12px; cursor:pointer;">Medium</button>
+        <button type="button" class="preset-btn" data-preset="expanded" style="background:#334155; color:#fff; border:none; padding:4px 10px; border-radius:4px; font-size:12px; cursor:pointer;">Expanded</button>
+        <button type="button" class="preset-btn" data-preset="hero" style="background:#334155; color:#fff; border:none; padding:4px 10px; border-radius:4px; font-size:12px; cursor:pointer;">Hero View</button>
+      </div>
+    </div>
+
     <div id="app"></div>
     <script type="module" src="./src/main.js?v=20"></script>
   </body>
