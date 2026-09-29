@@ -40,14 +40,14 @@ function isStatLabel(text) {
   return /^(?:goals?(?: scored| per game)?|assists?(?: made)?|matches?(?: played)?|wins?|losses?|draws?|rating|points?|appearances?|minutes?|shots?|passes?|tackles?|saves?|clean sheets?|yellow cards?|red cards?)$/i.test(value);
 }
 
-// Character/team names are normally the large heading text. Keep this separate
-// from stat labels so names such as "SC Freiburg" can have their own color.
-function isCharacterName(text, font) {
+// The character/team title is the remaining short text drawn in the card after
+// numbers and stat labels have been identified. This deliberately does not
+// depend on font size, so it also works when the canvas is scaled.
+function isCharacterName(text) {
   const value = String(text).trim();
   if (!value || isStatNumber(value) || isStatLabel(value)) return false;
-  const match = typeof font === 'string' ? font.match(/(\d+(?:\.\d+)?)px/) : null;
-  const size = match ? Number(match[1]) : 0;
-  return size >= 20 && value.length <= 40;
+  if (value.length > 40) return false;
+  return /[A-Za-zÀ-ÖØ-öø-ÿ]/.test(value);
 }
 
 CanvasRenderingContext2D.prototype.fillText = function(text, x, y, maxWidth) {
@@ -56,7 +56,7 @@ CanvasRenderingContext2D.prototype.fillText = function(text, x, y, maxWidth) {
   if (state.textScale !== 1) this.font = scaleFont(oldFont);
   if (isStatNumber(text)) this.fillStyle = state.numberColor;
   else if (isStatLabel(text)) this.fillStyle = state.labelColor;
-  else if (isCharacterName(text, oldFont)) this.fillStyle = state.nameColor;
+  else if (isCharacterName(text)) this.fillStyle = state.nameColor;
   const result = maxWidth === undefined
     ? originalFillText.call(this, text, x, y)
     : originalFillText.call(this, text, x, y, maxWidth * state.textScale);
@@ -71,7 +71,7 @@ CanvasRenderingContext2D.prototype.strokeText = function(text, x, y, maxWidth) {
   if (state.textScale !== 1) this.font = scaleFont(oldFont);
   if (isStatNumber(text)) this.strokeStyle = state.numberColor;
   else if (isStatLabel(text)) this.strokeStyle = state.labelColor;
-  else if (isCharacterName(text, oldFont)) this.strokeStyle = state.nameColor;
+  else if (isCharacterName(text)) this.strokeStyle = state.nameColor;
   const result = maxWidth === undefined
     ? originalStrokeText.call(this, text, x, y)
     : originalStrokeText.call(this, text, x, y, maxWidth * state.textScale);
