@@ -5,6 +5,7 @@ const state = {
   transparent: false,
   numberColor: '#000000',
   labelColor: '#000000',
+  nameColor: '#000000',
 };
 const originalRoundRect = CanvasRenderingContext2D.prototype.roundRect;
 const originalFillText = CanvasRenderingContext2D.prototype.fillText;
@@ -39,12 +40,23 @@ function isStatLabel(text) {
   return /^(?:goals?(?: scored| per game)?|assists?(?: made)?|matches?(?: played)?|wins?|losses?|draws?|rating|points?|appearances?|minutes?|shots?|passes?|tackles?|saves?|clean sheets?|yellow cards?|red cards?)$/i.test(value);
 }
 
+// Character/team names are normally the large heading text. Keep this separate
+// from stat labels so names such as "SC Freiburg" can have their own color.
+function isCharacterName(text, font) {
+  const value = String(text).trim();
+  if (!value || isStatNumber(value) || isStatLabel(value)) return false;
+  const match = typeof font === 'string' ? font.match(/(\d+(?:\.\d+)?)px/) : null;
+  const size = match ? Number(match[1]) : 0;
+  return size >= 20 && value.length <= 40;
+}
+
 CanvasRenderingContext2D.prototype.fillText = function(text, x, y, maxWidth) {
   const oldFont = this.font;
   const oldFillStyle = this.fillStyle;
   if (state.textScale !== 1) this.font = scaleFont(oldFont);
   if (isStatNumber(text)) this.fillStyle = state.numberColor;
   else if (isStatLabel(text)) this.fillStyle = state.labelColor;
+  else if (isCharacterName(text, oldFont)) this.fillStyle = state.nameColor;
   const result = maxWidth === undefined
     ? originalFillText.call(this, text, x, y)
     : originalFillText.call(this, text, x, y, maxWidth * state.textScale);
@@ -59,6 +71,7 @@ CanvasRenderingContext2D.prototype.strokeText = function(text, x, y, maxWidth) {
   if (state.textScale !== 1) this.font = scaleFont(oldFont);
   if (isStatNumber(text)) this.strokeStyle = state.numberColor;
   else if (isStatLabel(text)) this.strokeStyle = state.labelColor;
+  else if (isCharacterName(text, oldFont)) this.strokeStyle = state.nameColor;
   const result = maxWidth === undefined
     ? originalStrokeText.call(this, text, x, y)
     : originalStrokeText.call(this, text, x, y, maxWidth * state.textScale);
@@ -80,6 +93,18 @@ function requestRedraw() {
   if (scrubber) scrubber.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
+const colors = `
+  <option value="#000000">Black</option>
+  <option value="#ffffff">White</option>
+  <option value="#ffd700">Gold</option>
+  <option value="#ff3b30">Red</option>
+  <option value="#007aff">Blue</option>
+  <option value="#00c853">Green</option>
+  <option value="#af52de">Purple</option>
+  <option value="#ff9500">Orange</option>
+  <option value="#00bcd4">Cyan</option>
+  <option value="#ff2d55">Pink</option>`;
+
 function addEnhancementControls() {
   if (document.querySelector('#box-text-controls')) return;
   const panel = document.querySelector('.settings-grid');
@@ -91,8 +116,9 @@ function addEnhancementControls() {
     <label class="range-field"><span>Box size <output id="box-size-value">100%</output></span><input id="box-size-control" type="range" min="40" max="500" step="5" value="100"></label>
     <label class="range-field"><span>Box text size <output id="box-text-size-value">100%</output></span><input id="box-text-size-control" type="range" min="40" max="500" step="5" value="100"></label>
     <label class="select-field"><span>Box fill</span><select id="box-fill-control"><option value="solid">Solid / translucent</option><option value="transparent">Border only — transparent inside</option></select></label>
-    <label class="select-field"><span>Number color</span><select id="number-color-control"><option value="#000000">Black</option><option value="#ffffff">White</option><option value="#ffd700">Gold</option><option value="#ff3b30">Red</option><option value="#007aff">Blue</option><option value="#00c853">Green</option><option value="#af52de">Purple</option><option value="#ff9500">Orange</option><option value="#00bcd4">Cyan</option><option value="#ff2d55">Pink</option></select></label>
-    <label class="select-field"><span>Label color</span><select id="label-color-control"><option value="#000000">Black</option><option value="#ffffff">White</option><option value="#ffd700">Gold</option><option value="#ff3b30">Red</option><option value="#007aff">Blue</option><option value="#00c853">Green</option><option value="#af52de">Purple</option><option value="#ff9500">Orange</option><option value="#00bcd4">Cyan</option><option value="#ff2d55">Pink</option></select></label>`;
+    <label class="select-field"><span>Character name color</span><select id="name-color-control">${colors}</select></label>
+    <label class="select-field"><span>Goals / Assists / Goal rate color</span><select id="label-color-control">${colors}</select></label>
+    <label class="select-field"><span>Figures / numbers color</span><select id="number-color-control">${colors}</select></label>`;
   panel.appendChild(wrapper);
 
   document.querySelector('#box-size-control').addEventListener('input', e => {
@@ -115,6 +141,10 @@ function addEnhancementControls() {
   });
   document.querySelector('#label-color-control').addEventListener('change', e => {
     state.labelColor = e.target.value;
+    requestRedraw();
+  });
+  document.querySelector('#name-color-control').addEventListener('change', e => {
+    state.nameColor = e.target.value;
     requestRedraw();
   });
 }
