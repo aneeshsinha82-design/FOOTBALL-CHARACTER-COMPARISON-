@@ -1,6 +1,6 @@
 # Character Comparison Studio
 
-A lightweight browser based studio for building a character comparison scene. The current version includes project background upload, an unlimited character lineup, per-character image and detail editing, an animated 16:9 scene preview, and browser-native WebM video export.
+A lightweight browser based studio for building a character comparison scene. The current version includes project background upload, an unlimited character lineup, per-character image and detail editing, an animated 16:9 scene preview, and browser-native video export.
 
 ## Run locally
 
@@ -22,12 +22,14 @@ The scene uses a logical 1920 × 1080 coordinate space. Characters are arranged 
 
 ## Video export
 
-Use **Generate Video** to record the same canvas animation with the browser MediaRecorder API. WebM is the supported export format; choose 1920 × 1080 or 1280 × 720 and 30 or 60 FPS. Video recording requires a browser that supports `HTMLCanvasElement.captureStream()` and `MediaRecorder` (Chrome recommended).
+Use **Export MP4** to render an H.264 `.mp4` with WebCodecs and the bundled local MP4 muxer in `src/vendor`, with no CDN or FFmpeg dependency. **Export WebM** is also available. Keep the tab open while rendering.
 
 ## Project structure
 
-- `src/main.js` builds the interface and connects uploads, editing, playback, and export.
+- `src/main.js` builds the interface enhancements and boots the local app.
+- `src/app.js` contains the application interface and interaction logic.
 - `src/modules/characters.js` owns the character model and image asset lifecycle.
 - `src/modules/scene.js` owns world layout, camera timeline sampling, and canvas drawing.
-- `src/modules/video-export.js` records the shared scene renderer as WebM.
+- `src/modules/video-export.js` renders H.264 MP4 with WebCodecs and records WebM with MediaRecorder.
+- `src/vendor/mp4-muxer.js` contains the local MP4 muxer used by the WebCodecs exporter.
 - `src/modules/gallery.js` remains available for the original upload gallery module.

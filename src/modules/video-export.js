@@ -1,206 +1,38 @@
 import { drawScene, getTimelineDuration, SCENE_HEIGHT, SCENE_WIDTH } from './scene.js';
+import { ArrayBufferTarget, Muxer } from '../vendor/mp4-muxer.js';
 
-let ffmpegInstance = null;
-let ffmpegLoadPromise = null;
-
-async function blobUrl(url, type) {
-  const response = await fetch(url, { cache: 'no-store', mode: 'cors' });
-  if (!response.ok) throw new Error(`Could not download encoder component (${response.status}).`);
-  return URL.createObjectURL(new Blob([await response.arrayBuffer()], { type }));
+const H264_CODECS = ['avc1.640033','avc1.64002A','avc1.4D002A','avc1.42002A','avc1.640028','avc1.4D0028','avc1.42E01F'];
+const yieldChannel = typeof MessageChannel === 'undefined' ? null : new MessageChannel();
+function yieldToBrowser(){ if(!yieldChannel)return new Promise(r=>setTimeout(r,0)); return new Promise(r=>{yieldChannel.port1.onmessage=()=>r();yieldChannel.port2.postMessage(null);}); }
+function parseOptions(project,resolution,fps){
+ if(!project?.characters?.length)throw new Error('Add at least one character before generating a video.');
+ const duration=Math.max(.1,Number(getTimelineDuration(project))||.1); const [rw,rh]=String(resolution).split('x').map(Number); const frameRate=Number(fps);
+ if(!Number.isFinite(rw)||!Number.isFinite(rh)||rw<16||rh<16)throw new Error('Choose a valid export resolution.');
+ if(!Number.isFinite(frameRate)||frameRate<1||frameRate>120)throw new Error('Choose a valid FPS between 1 and 120.');
+ return {duration,width:Math.round(rw/2)*2,height:Math.round(rh/2)*2,frameRate};
 }
-
-async function loadFfmpeg() {
-  if (ffmpegInstance) return ffmpegInstance;
-  if (ffmpegLoadPromise) return ffmpegLoadPromise;
-
-  ffmpegLoadPromise = (async () => {
-    const { FFmpeg } = await import('https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.15/dist/esm/index.js');
-    const ffmpeg = new FFmpeg();
-    const base = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd';
-
-    // Use blob URLs so the FFmpeg worker can load the WASM/core files without
-    // cross-origin worker restrictions. Keep the URLs alive for the lifetime
-    // of the encoder rather than revoking them immediately after load().
-    const coreURL = await blobUrl(`${base}/ffmpeg-core.js`, 'text/javascript');
-    const wasmURL = await blobUrl(`${base}/ffmpeg-core.wasm`, 'application/wasm');
-    const workerURL = await blobUrl(`${base}/ffmpeg-core.worker.js`, 'text/javascript');
-
-    try {
-      await ffmpeg.load({ coreURL, wasmURL, workerURL });
-    } catch (error) {
-      URL.revokeObjectURL(coreURL);
-      URL.revokeObjectURL(wasmURL);
-      URL.revokeObjectURL(workerURL);
-      throw error;
-    }
-
-    ffmpegInstance = ffmpeg;
-    return ffmpeg;
-  })().catch((error) => {
-    ffmpegLoadPromise = null;
-    throw new Error(`MP4 encoder could not start. ${error?.message || error}`);
-  });
-
-  return ffmpegLoadPromise;
+function makeCanvas(width,height){const c=document.createElement('canvas');c.width=width;c.height=height;return c;}
+async function pickH264Config(width,height,frameRate,bitrate){
+ for(const codec of H264_CODECS){const config={codec,width,height,framerate:frameRate,bitrate,avc:{format:'avc'},latencyMode:'quality'};try{const {supported,resolvedConfig}=await VideoEncoder.isConfigSupported(config);if(supported)return {...config,...(resolvedConfig||{}),avc:{format:'avc'}};}catch{}}
+ return null;
 }
-
-async function transcodeToMp4(sourceBlob, duration, width, height, fps, onProgress, onStatus) {
-  onStatus?.('Starting MP4 encoder…');
-  const ffmpeg = await loadFfmpeg();
-  const inputName = 'comparison-source.webm';
-  const outputName = 'football-club-comparison.mp4';
-  const inputBytes = new Uint8Array(await sourceBlob.arrayBuffer());
-
-  try {
-    await ffmpeg.writeFile(inputName, inputBytes);
-    onStatus?.(`Encoding ${width} × ${height} MP4 at ${fps} FPS…`);
-
-    await ffmpeg.exec([
-      '-i', inputName,
-      '-map', '0:v:0',
-      '-an',
-      '-c:v', 'libx264',
-      '-preset', 'veryfast',
-      '-crf', '20',
-      '-r', String(fps),
-      '-pix_fmt', 'yuv420p',
-      '-movflags', '+faststart',
-      '-f', 'mp4',
-      outputName,
-    ]);
-
-    const encoded = await ffmpeg.readFile(outputName);
-    const bytes = encoded instanceof Uint8Array ? encoded : new Uint8Array(encoded);
-    if (!bytes.length) throw new Error('FFmpeg returned an empty file.');
-
-    // ISO-BMFF/MP4 files contain the ASCII "ftyp" box near byte 4.
-    const header = new TextDecoder().decode(bytes.slice(4, 12));
-    if (!header.includes('ftyp')) throw new Error('The encoder returned a non-MP4 file.');
-
-    onProgress?.(1);
-    return new Blob([bytes], { type: 'video/mp4' });
-  } catch (error) {
-    const detail = error?.message || 'Unknown encoding error.';
-    throw new Error(`MP4 export failed: ${detail} Try 1280 × 720 at 30 FPS if the browser is low on memory.`);
-  } finally {
-    await Promise.allSettled([
-      ffmpeg.deleteFile(inputName),
-      ffmpeg.deleteFile(outputName),
-    ]);
+async function exportMp4WebCodecs(project,{duration,width,height,frameRate},{onProgress,onStatus}){
+ const bitrate=Math.round(Math.min(40000000,Math.max(4000000,width*height*frameRate*.15))); const config=await pickH264Config(width,height,frameRate,bitrate); if(!config)return null;
+ const canvas=makeCanvas(width,height); const target=new ArrayBufferTarget(); const muxer=new Muxer({target,video:{codec:'avc',width,height,frameRate},fastStart:'in-memory',firstTimestampBehavior:'offset'});
+ let encoderError=null; const encoder=new VideoEncoder({output:(chunk,meta)=>muxer.addVideoChunk(chunk,meta),error:e=>{encoderError=e;}}); encoder.configure(config);
+ const totalFrames=Math.max(1,Math.round(duration*frameRate)), frameDurationUs=1000000/frameRate, keyFrameEvery=Math.max(1,Math.round(frameRate*2)); onStatus?.(`Rendering ${width} × ${height} MP4 at ${frameRate} FPS — keep this tab open…`); onProgress?.(0);
+ try{
+  for(let index=0;index<totalFrames;index++){
+   if(encoderError)throw encoderError; while(encoder.encodeQueueSize>6){await yieldToBrowser();if(encoderError)throw encoderError;}
+   drawScene(canvas,project,Math.min(duration,index/frameRate)); const frame=new VideoFrame(canvas,{timestamp:Math.round(index*frameDurationUs),duration:Math.round(frameDurationUs)});
+   try{encoder.encode(frame,{keyFrame:index%keyFrameEvery===0});}finally{frame.close();}
+   if(index%4===0){onProgress?.(((index+1)/totalFrames)*.97);await yieldToBrowser();}
   }
+  onStatus?.('Finalizing MP4…'); await encoder.flush(); if(encoderError)throw encoderError; muxer.finalize();
+ }finally{if(encoder.state!=='closed')encoder.close();}
+ const bytes=target.buffer;if(!bytes?.byteLength)throw new Error('The encoder produced an empty file.');onProgress?.(1);return new Blob([bytes],{type:'video/mp4'});
 }
-
-export function generateVideo(project, { resolution, fps, format = 'mp4', onProgress, onStatus }) {
-  return new Promise((resolve, reject) => {
-    let recorder;
-    let stream;
-    let animationFrame = 0;
-    let finished = false;
-
-    try {
-      if (!project?.characters?.length) {
-        throw new Error('Add at least one character before generating a video.');
-      }
-
-      const normalizedFormat = String(format).toLowerCase() === 'webm' ? 'webm' : 'mp4';
-      const mimeType = supportedMimeType('webm');
-      const duration = Math.max(0.1, Number(getTimelineDuration(project)) || 0.1);
-      const [width, height] = String(resolution).split('x').map(Number);
-      const numericFps = Number(fps);
-
-      if (!Number.isFinite(width) || !Number.isFinite(height) || width < 16 || height < 16) {
-        throw new Error('Choose a valid export resolution.');
-      }
-      if (!Number.isFinite(numericFps) || numericFps < 1 || numericFps > 120) {
-        throw new Error('Choose a valid FPS between 1 and 120.');
-      }
-
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.round(width);
-      canvas.height = Math.round(height);
-      stream = canvas.captureStream(numericFps);
-      recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 12_000_000 });
-      const chunks = [];
-      let start = 0;
-
-      const cleanup = () => {
-        cancelAnimationFrame(animationFrame);
-        stream?.getTracks().forEach((track) => track.stop());
-      };
-
-      recorder.ondataavailable = (event) => {
-        if (event.data?.size) chunks.push(event.data);
-      };
-
-      recorder.onerror = () => {
-        if (!finished) {
-          finished = true;
-          cleanup();
-          reject(new Error('Browser recording failed. Use the latest Chrome and try 1280 × 720 at 30 FPS.'));
-        }
-      };
-
-      recorder.onstop = async () => {
-        if (finished) return;
-        finished = true;
-        cleanup();
-        if (!chunks.length) {
-          reject(new Error('No video frames were recorded.'));
-          return;
-        }
-
-        const sourceBlob = new Blob(chunks, { type: mimeType });
-        try {
-          if (normalizedFormat === 'webm') {
-            onProgress?.(1);
-            resolve(new Blob([sourceBlob], { type: 'video/webm' }));
-          } else {
-            resolve(await transcodeToMp4(sourceBlob, duration, width, height, numericFps, onProgress, onStatus));
-          }
-        } catch (error) {
-          reject(error);
-        }
-      };
-
-      // Draw the first frame before starting MediaRecorder so frame 0 is never blank.
-      drawScene(canvas, project, 0);
-      recorder.start(250);
-      start = performance.now();
-      onProgress?.(0);
-
-      const render = (now) => {
-        if (finished) return;
-        const elapsed = Math.min(duration, Math.max(0, (now - start) / 1000));
-        drawScene(canvas, project, elapsed);
-        onProgress?.((elapsed / duration) * (normalizedFormat === 'mp4' ? 0.8 : 1));
-
-        if (elapsed >= duration) {
-          if (recorder.state !== 'inactive') recorder.stop();
-          return;
-        }
-        animationFrame = requestAnimationFrame(render);
-      };
-
-      animationFrame = requestAnimationFrame(render);
-    } catch (error) {
-      cancelAnimationFrame(animationFrame);
-      stream?.getTracks().forEach((track) => track.stop());
-      if (recorder && recorder.state !== 'inactive') recorder.stop();
-      reject(error);
-    }
-  });
-}
-
-function supportedMimeType(format) {
-  if (typeof MediaRecorder === 'undefined') {
-    throw new Error('Video recording is not available in this browser. Try the latest Chrome.');
-  }
-  const candidates = format === 'webm'
-    ? ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm']
-    : ['video/mp4;codecs=avc1.42E01E', 'video/mp4;codecs=avc1', 'video/mp4'];
-  const type = candidates.find((candidate) => MediaRecorder.isTypeSupported(candidate));
-  if (!type) throw new Error(`This browser does not support ${format.toUpperCase()} recording.`);
-  return type;
-}
-
+function supportedRecorderType(kind){if(typeof MediaRecorder==='undefined')return null;const candidates=kind==='mp4'?['video/mp4;codecs=avc1.640028','video/mp4;codecs=avc1.42E01E','video/mp4;codecs=avc1','video/mp4']:['video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];return candidates.find(t=>MediaRecorder.isTypeSupported(t))||null;}
+function recordRealtime(project,{duration,width,height,frameRate},kind,mimeType,{onProgress,onStatus}){return new Promise((resolve,reject)=>{const canvas=makeCanvas(width,height);let recorder,stream,animationFrame=0,finished=false;const chunks=[];const cleanup=()=>{cancelAnimationFrame(animationFrame);stream?.getTracks().forEach(t=>t.stop());};const fail=e=>{if(finished)return;finished=true;cleanup();reject(e);};try{stream=canvas.captureStream(frameRate);recorder=new MediaRecorder(stream,{mimeType,videoBitsPerSecond:12000000});}catch(e){fail(e);return;}recorder.ondataavailable=e=>{if(e.data?.size)chunks.push(e.data);};recorder.onerror=()=>fail(new Error('Browser recording failed. Try 1280 × 720 at 30 FPS.'));recorder.onstop=()=>{if(finished)return;finished=true;cleanup();if(!chunks.length)return reject(new Error('No video frames were recorded.'));onProgress?.(1);resolve(new Blob(chunks,{type:kind==='mp4'?'video/mp4':'video/webm'}));};onStatus?.(`Recording ${width} × ${height} ${kind.toUpperCase()} in real time (${Math.ceil(duration)} s) — keep this tab open…`);drawScene(canvas,project,0);recorder.start(250);const start=performance.now();onProgress?.(0);const render=now=>{if(finished)return;const elapsed=Math.min(duration,Math.max(0,(now-start)/1000));drawScene(canvas,project,elapsed);onProgress?.(elapsed/duration);if(elapsed>=duration){if(recorder.state!=='inactive')recorder.stop();return;}animationFrame=requestAnimationFrame(render);};animationFrame=requestAnimationFrame(render);});}
+export async function generateVideo(project,{resolution,fps,format='mp4',onProgress,onStatus}={}){const options=parseOptions(project,resolution,fps),callbacks={onProgress,onStatus},wantsMp4=String(format).toLowerCase()!=='webm';if(!wantsMp4){const mime=supportedRecorderType('webm');if(!mime)throw new Error('This browser cannot record WebM video. Try the latest Chrome, Edge, or Firefox.');return recordRealtime(project,options,'webm',mime,callbacks);}if(typeof VideoEncoder!=='undefined'&&typeof VideoFrame!=='undefined'){try{const blob=await exportMp4WebCodecs(project,options,callbacks);if(blob)return blob;}catch(error){console.warn('WebCodecs MP4 export failed, trying fallback.',error);onStatus?.('Fast MP4 encoder failed, switching to real-time recording…');}}const mp4Type=supportedRecorderType('mp4');if(mp4Type)return recordRealtime(project,options,'mp4',mp4Type,callbacks);throw new Error('This browser cannot create MP4 files. Please use the latest desktop Chrome or Edge, or export WebM instead.');}
 export { SCENE_WIDTH, SCENE_HEIGHT };
