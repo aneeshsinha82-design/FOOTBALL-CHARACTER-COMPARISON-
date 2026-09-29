@@ -1,5 +1,5 @@
 // UI enhancement layer: loaded before the known-good application so canvas drawing can be adjusted safely.
-const state = { boxScale: 1, textScale: 1, transparent: false };
+const state = { boxScale: 1, textScale: 1, transparent: false, numberColor: '#ffd84d', labelColor: null };
 const originalRoundRect = CanvasRenderingContext2D.prototype.roundRect;
 const originalFillText = CanvasRenderingContext2D.prototype.fillText;
 const originalStrokeText = CanvasRenderingContext2D.prototype.strokeText;
@@ -23,10 +23,37 @@ function scaleFont(font) {
   if (state.textScale === 1 || typeof font !== 'string') return font;
   return font.replace(/(\d+(?:\.\d+)?)px/g, (_, n) => `${Number(n) * state.textScale}px`);
 }
+
+function drawNumberAndLabel(ctx, text, x, y, maxWidth) {
+  const match = String(text).match(/^(\s*[+-]?\d+(?:[.,]\d+)?)(\s+.+)$/);
+  if (!match) return false;
+  const numberPart = match[1];
+  const labelPart = match[2];
+  const numberWidth = ctx.measureText(numberPart).width;
+  const labelWidth = ctx.measureText(labelPart).width;
+  const totalWidth = numberWidth + labelWidth;
+  let startX = x;
+  if (ctx.textAlign === 'center') startX = x - totalWidth / 2;
+  else if (ctx.textAlign === 'right' || ctx.textAlign === 'end') startX = x - totalWidth;
+  if (maxWidth !== undefined && totalWidth > maxWidth * state.textScale) return false;
+  const oldFill = ctx.fillStyle;
+  ctx.fillStyle = state.numberColor;
+  originalFillText.call(ctx, numberPart, startX, y);
+  ctx.fillStyle = state.labelColor || oldFill;
+  originalFillText.call(ctx, labelPart, startX + numberWidth, y);
+  ctx.fillStyle = oldFill;
+  return true;
+}
+
 CanvasRenderingContext2D.prototype.fillText = function(text, x, y, maxWidth) {
   const oldFont = this.font;
+  const oldFill = this.fillStyle;
   if (state.textScale !== 1) this.font = scaleFont(oldFont);
-  const result = maxWidth === undefined ? originalFillText.call(this, text, x, y) : originalFillText.call(this, text, x, y, maxWidth * state.textScale);
+  const split = drawNumberAndLabel(this, text, x, y, maxWidth);
+  let result;
+  if (split) result = undefined;
+  else result = maxWidth === undefined ? originalFillText.call(this, text, x, y) : originalFillText.call(this, text, x, y, maxWidth * state.textScale);
+  this.fillStyle = oldFill;
   this.font = oldFont;
   return result;
 };
@@ -59,13 +86,17 @@ function addEnhancementControls() {
   wrapper.id = 'box-text-controls';
   wrapper.style.cssText = 'grid-column:1/-1;display:grid;grid-template-columns:repeat(3,minmax(180px,1fr));gap:14px;margin-top:8px;padding-top:16px;border-top:1px solid rgba(120,140,180,.22)';
   wrapper.innerHTML = `
-    <label class="range-field"><span>Box size <output id="box-size-value">100%</output></span><input id="box-size-control" type="range" min="80" max="150" step="5" value="100"></label>
-    <label class="range-field"><span>Box text size <output id="box-text-size-value">100%</output></span><input id="box-text-size-control" type="range" min="80" max="160" step="5" value="100"></label>
-    <label class="select-field"><span>Box fill</span><select id="box-fill-control"><option value="solid">Solid / translucent</option><option value="transparent">Border only — transparent inside</option></select></label>`;
+    <label class="range-field"><span>Box size <output id="box-size-value">100%</output></span><input id="box-size-control" type="range" min="60" max="300" step="5" value="100"></label>
+    <label class="range-field"><span>Box text size <output id="box-text-size-value">100%</output></span><input id="box-text-size-control" type="range" min="60" max="300" step="5" value="100"></label>
+    <label class="select-field"><span>Box fill</span><select id="box-fill-control"><option value="solid">Solid / translucent</option><option value="transparent">Border only — transparent inside</option></select></label>
+    <label class="select-field"><span>Number color</span><select id="number-color-control"><option value="#ffd84d">Gold</option><option value="#ffffff">White</option><option value="#ff4d67">Red</option><option value="#45d9ff">Cyan</option><option value="#55e88a">Green</option><option value="#b779ff">Purple</option><option value="#ff8a3d">Orange</option><option value="#ff66d9">Pink</option></select></label>
+    <label class="select-field"><span>Label color</span><select id="label-color-control"><option value="">Keep original</option><option value="#ffffff">White</option><option value="#aebbd2">Silver</option><option value="#ffd84d">Gold</option><option value="#45d9ff">Cyan</option><option value="#55e88a">Green</option><option value="#b779ff">Purple</option></select></label>`;
   panel.appendChild(wrapper);
   document.querySelector('#box-size-control').addEventListener('input', e => { state.boxScale = Number(e.target.value) / 100; document.querySelector('#box-size-value').textContent = `${e.target.value}%`; requestRedraw(); });
   document.querySelector('#box-text-size-control').addEventListener('input', e => { state.textScale = Number(e.target.value) / 100; document.querySelector('#box-text-size-value').textContent = `${e.target.value}%`; requestRedraw(); });
   document.querySelector('#box-fill-control').addEventListener('change', e => { state.transparent = e.target.value === 'transparent'; requestRedraw(); });
+  document.querySelector('#number-color-control').addEventListener('change', e => { state.numberColor = e.target.value; requestRedraw(); });
+  document.querySelector('#label-color-control').addEventListener('change', e => { state.labelColor = e.target.value || null; requestRedraw(); });
 }
 
 await import('https://cdn.jsdelivr.net/gh/aneeshsinha82-design/FOOTBALL-CHARACTER-COMPARISON-@3f60ee26d13f1863cb97b10ac9d508934d0ee9d5/src/main.js');
