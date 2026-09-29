@@ -12,15 +12,18 @@ async function loadFfmpeg() {
       const ffmpeg = new FFmpeg();
       const coreBase = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd';
       const toBlobURL = async (url, type) => {
-        const response = await fetch(url, { cache: 'no-store' });
+        const response = await fetch(url, { cache: 'force-cache' });
         if (!response.ok) throw new Error(`Could not download FFmpeg component (${response.status}).`);
         return URL.createObjectURL(new Blob([await response.arrayBuffer()], { type }));
       };
-      await ffmpeg.load({
-        coreURL: await toBlobURL(`${coreBase}/ffmpeg-core.js`, 'text/javascript'),
-        wasmURL: await toBlobURL(`${coreBase}/ffmpeg-core.wasm`, 'application/wasm'),
-        workerURL: await toBlobURL(`${coreBase}/ffmpeg-core.worker.js`, 'text/javascript'),
-      });
+      const coreURL = await toBlobURL(`${coreBase}/ffmpeg-core.js`, 'text/javascript');
+      const wasmURL = await toBlobURL(`${coreBase}/ffmpeg-core.wasm`, 'application/wasm');
+      try {
+        await ffmpeg.load({ coreURL, wasmURL });
+      } finally {
+        URL.revokeObjectURL(coreURL);
+        URL.revokeObjectURL(wasmURL);
+      }
       ffmpegInstance = ffmpeg;
       return ffmpeg;
     })().catch((error) => {
@@ -53,13 +56,9 @@ async function transcodeToMp4(sourceBlob, duration, width, height, fps, onProgre
         '-i', inputName,
         '-map', '0:v:0',
         '-an',
-        '-vf', `fps=${fps},scale=${width}:${height}:flags=lanczos,format=yuv420p`,
         '-c:v', 'libx264',
-        '-profile:v', 'high',
-        '-preset', 'medium',
-        '-crf', '18',
-        '-r', String(fps),
-        '-fps_mode', 'cfr',
+        '-preset', 'veryfast',
+        '-crf', '20',
         '-pix_fmt', 'yuv420p',
         '-movflags', '+faststart',
         '-f', 'mp4',
@@ -71,10 +70,11 @@ async function transcodeToMp4(sourceBlob, duration, width, height, fps, onProgre
 
     const encoded = await ffmpeg.readFile(outputName);
     if (!encoded?.length) throw new Error('FFmpeg produced an empty MP4 file.');
-    const header = new TextDecoder().decode(encoded.slice(4, 12));
+    const bytes = encoded instanceof Uint8Array ? encoded : new Uint8Array(encoded);
+    const header = new TextDecoder().decode(bytes.slice(4, 12));
     if (!header.includes('ftyp')) throw new Error('The encoder did not produce a valid MP4 container.');
     onProgress?.(1);
-    return new Blob([encoded], { type: 'video/mp4' });
+    return new Blob([bytes.buffer], { type: 'video/mp4' });
   } catch (error) {
     const detail = error?.message || 'Encoding failed.';
     throw new Error(`The MP4 could not be created. ${detail} Try 1280 × 720 at 30 FPS if the browser runs out of memory.`);
@@ -95,6 +95,9 @@ export function generateVideo(project, { resolution, fps, format = 'mp4', onProg
       const duration = getTimelineDuration(project);
       const [width, height] = resolution.split('x').map(Number);
       const numericFps = Number(fps);
+      if (!Number.isFinite(width) || !Number.isFinite(height) || !Number.isFinite(numericFps) || numericFps <= 0) {
+        throw new Error('Choose a valid export resolution and frame rate.');
+      }
       const canvas = document.createElement('canvas');
       canvas.width = width;
       canvas.height = height;
@@ -103,12 +106,16 @@ export function generateVideo(project, { resolution, fps, format = 'mp4', onProg
       const chunks = [];
       let animationFrame = 0;
       let start = 0;
+      let stopped = false;
 
       recorder.ondataavailable = (event) => {
         if (event.data.size) chunks.push(event.data);
       };
-      recorder.onerror = () => reject(new Error('The browser stopped recording. Try Chrome and allow the page to use its normal browser storage/network access.'));
+      recorder.onerror = () => {
+        if (!stopped) reject(new Error('The browser stopped recording. Try the latest Chrome.'));
+      };
       recorder.onstop = async () => {
+        stopped = true;
         cancelAnimationFrame(animationFrame);
         stream.getTracks().forEach((track) => track.stop());
         if (!chunks.length) return reject(new Error('No video frames were recorded.'));
@@ -126,15 +133,16 @@ export function generateVideo(project, { resolution, fps, format = 'mp4', onProg
       };
 
       drawScene(canvas, project, 0);
-      recorder.start(200);
+      recorder.start(250);
       start = performance.now();
+      onProgress?.(0);
 
       const render = (now) => {
-        const elapsed = Math.min(duration, (now - start) / 1000);
+        const elapsed = Math.min(duration, Math.max(0, (now - start) / 1000));
         drawScene(canvas, project, elapsed);
-        onProgress(duration ? (elapsed / duration) * (normalizedFormat === 'mp4' ? 0.8 : 1) : 1);
+        onProgress?.(duration ? (elapsed / duration) * (normalizedFormat === 'mp4' ? 0.8 : 1) : 1);
         if (elapsed >= duration) {
-          recorder.stop();
+          if (recorder.state !== 'inactive') recorder.stop();
           return;
         }
         animationFrame = requestAnimationFrame(render);
