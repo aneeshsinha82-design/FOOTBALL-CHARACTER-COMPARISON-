@@ -1,5 +1,11 @@
 // UI enhancement layer: loaded before the known-good application so canvas drawing can be adjusted safely.
-const state = { boxScale: 1, textScale: 1, transparent: false, numberColor: '#ffd84d', labelColor: null };
+const state = {
+  boxScale: 1,
+  textScale: 1,
+  transparent: false,
+  numberColor: '#000000',
+  labelColor: '#000000',
+};
 const originalRoundRect = CanvasRenderingContext2D.prototype.roundRect;
 const originalFillText = CanvasRenderingContext2D.prototype.fillText;
 const originalStrokeText = CanvasRenderingContext2D.prototype.strokeText;
@@ -24,44 +30,40 @@ function scaleFont(font) {
   return font.replace(/(\d+(?:\.\d+)?)px/g, (_, n) => `${Number(n) * state.textScale}px`);
 }
 
-function drawNumberAndLabel(ctx, text, x, y, maxWidth) {
-  const match = String(text).match(/^(\s*[+-]?\d+(?:[.,]\d+)?)(\s+.+)$/);
-  if (!match) return false;
-  const numberPart = match[1];
-  const labelPart = match[2];
-  const numberWidth = ctx.measureText(numberPart).width;
-  const labelWidth = ctx.measureText(labelPart).width;
-  const totalWidth = numberWidth + labelWidth;
-  let startX = x;
-  if (ctx.textAlign === 'center') startX = x - totalWidth / 2;
-  else if (ctx.textAlign === 'right' || ctx.textAlign === 'end') startX = x - totalWidth;
-  if (maxWidth !== undefined && totalWidth > maxWidth * state.textScale) return false;
-  const oldFill = ctx.fillStyle;
-  ctx.fillStyle = state.numberColor;
-  originalFillText.call(ctx, numberPart, startX, y);
-  ctx.fillStyle = state.labelColor || oldFill;
-  originalFillText.call(ctx, labelPart, startX + numberWidth, y);
-  ctx.fillStyle = oldFill;
-  return true;
+function isStatNumber(text) {
+  return /^[-+]?\d+(?:[.,]\d+)?%?$/.test(String(text).trim());
+}
+
+function isStatLabel(text) {
+  const value = String(text).trim();
+  return /^(?:goals?(?: scored| per game)?|assists?(?: made)?|matches?(?: played)?|wins?|losses?|draws?|rating|points?|appearances?|minutes?|shots?|passes?|tackles?|saves?|clean sheets?|yellow cards?|red cards?)$/i.test(value);
 }
 
 CanvasRenderingContext2D.prototype.fillText = function(text, x, y, maxWidth) {
   const oldFont = this.font;
-  const oldFill = this.fillStyle;
+  const oldFillStyle = this.fillStyle;
   if (state.textScale !== 1) this.font = scaleFont(oldFont);
-  const split = drawNumberAndLabel(this, text, x, y, maxWidth);
-  let result;
-  if (split) result = undefined;
-  else result = maxWidth === undefined ? originalFillText.call(this, text, x, y) : originalFillText.call(this, text, x, y, maxWidth * state.textScale);
-  this.fillStyle = oldFill;
+  if (isStatNumber(text)) this.fillStyle = state.numberColor;
+  else if (isStatLabel(text)) this.fillStyle = state.labelColor;
+  const result = maxWidth === undefined
+    ? originalFillText.call(this, text, x, y)
+    : originalFillText.call(this, text, x, y, maxWidth * state.textScale);
   this.font = oldFont;
+  this.fillStyle = oldFillStyle;
   return result;
 };
+
 CanvasRenderingContext2D.prototype.strokeText = function(text, x, y, maxWidth) {
   const oldFont = this.font;
+  const oldStrokeStyle = this.strokeStyle;
   if (state.textScale !== 1) this.font = scaleFont(oldFont);
-  const result = maxWidth === undefined ? originalStrokeText.call(this, text, x, y) : originalStrokeText.call(this, text, x, y, maxWidth * state.textScale);
+  if (isStatNumber(text)) this.strokeStyle = state.numberColor;
+  else if (isStatLabel(text)) this.strokeStyle = state.labelColor;
+  const result = maxWidth === undefined
+    ? originalStrokeText.call(this, text, x, y)
+    : originalStrokeText.call(this, text, x, y, maxWidth * state.textScale);
   this.font = oldFont;
+  this.strokeStyle = oldStrokeStyle;
   return result;
 };
 
@@ -89,14 +91,32 @@ function addEnhancementControls() {
     <label class="range-field"><span>Box size <output id="box-size-value">100%</output></span><input id="box-size-control" type="range" min="60" max="300" step="5" value="100"></label>
     <label class="range-field"><span>Box text size <output id="box-text-size-value">100%</output></span><input id="box-text-size-control" type="range" min="60" max="300" step="5" value="100"></label>
     <label class="select-field"><span>Box fill</span><select id="box-fill-control"><option value="solid">Solid / translucent</option><option value="transparent">Border only — transparent inside</option></select></label>
-    <label class="select-field"><span>Number color</span><select id="number-color-control"><option value="#ffd84d">Gold</option><option value="#ffffff">White</option><option value="#ff4d67">Red</option><option value="#45d9ff">Cyan</option><option value="#55e88a">Green</option><option value="#b779ff">Purple</option><option value="#ff8a3d">Orange</option><option value="#ff66d9">Pink</option></select></label>
-    <label class="select-field"><span>Label color</span><select id="label-color-control"><option value="">Keep original</option><option value="#ffffff">White</option><option value="#aebbd2">Silver</option><option value="#ffd84d">Gold</option><option value="#45d9ff">Cyan</option><option value="#55e88a">Green</option><option value="#b779ff">Purple</option></select></label>`;
+    <label class="select-field"><span>Number color</span><select id="number-color-control"><option value="#000000">Black</option><option value="#ffffff">White</option><option value="#ffd700">Gold</option><option value="#ff3b30">Red</option><option value="#007aff">Blue</option><option value="#00c853">Green</option><option value="#af52de">Purple</option><option value="#ff9500">Orange</option><option value="#00bcd4">Cyan</option><option value="#ff2d55">Pink</option></select></label>
+    <label class="select-field"><span>Label color</span><select id="label-color-control"><option value="#000000">Black</option><option value="#ffffff">White</option><option value="#ffd700">Gold</option><option value="#ff3b30">Red</option><option value="#007aff">Blue</option><option value="#00c853">Green</option><option value="#af52de">Purple</option><option value="#ff9500">Orange</option><option value="#00bcd4">Cyan</option><option value="#ff2d55">Pink</option></select></label>`;
   panel.appendChild(wrapper);
-  document.querySelector('#box-size-control').addEventListener('input', e => { state.boxScale = Number(e.target.value) / 100; document.querySelector('#box-size-value').textContent = `${e.target.value}%`; requestRedraw(); });
-  document.querySelector('#box-text-size-control').addEventListener('input', e => { state.textScale = Number(e.target.value) / 100; document.querySelector('#box-text-size-value').textContent = `${e.target.value}%`; requestRedraw(); });
-  document.querySelector('#box-fill-control').addEventListener('change', e => { state.transparent = e.target.value === 'transparent'; requestRedraw(); });
-  document.querySelector('#number-color-control').addEventListener('change', e => { state.numberColor = e.target.value; requestRedraw(); });
-  document.querySelector('#label-color-control').addEventListener('change', e => { state.labelColor = e.target.value || null; requestRedraw(); });
+
+  document.querySelector('#box-size-control').addEventListener('input', e => {
+    state.boxScale = Number(e.target.value) / 100;
+    document.querySelector('#box-size-value').textContent = `${e.target.value}%`;
+    requestRedraw();
+  });
+  document.querySelector('#box-text-size-control').addEventListener('input', e => {
+    state.textScale = Number(e.target.value) / 100;
+    document.querySelector('#box-text-size-value').textContent = `${e.target.value}%`;
+    requestRedraw();
+  });
+  document.querySelector('#box-fill-control').addEventListener('change', e => {
+    state.transparent = e.target.value === 'transparent';
+    requestRedraw();
+  });
+  document.querySelector('#number-color-control').addEventListener('change', e => {
+    state.numberColor = e.target.value;
+    requestRedraw();
+  });
+  document.querySelector('#label-color-control').addEventListener('change', e => {
+    state.labelColor = e.target.value;
+    requestRedraw();
+  });
 }
 
 await import('https://cdn.jsdelivr.net/gh/aneeshsinha82-design/FOOTBALL-CHARACTER-COMPARISON-@3f60ee26d13f1863cb97b10ac9d508934d0ee9d5/src/main.js');
