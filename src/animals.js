@@ -27,13 +27,27 @@ export const ANIMALS = [
 
 export function wikipediaSlug(name) { return name.replace(/ /g, '_'); }
 
+// Use reusable/openly licensed animal photography from Wikimedia Commons.
+// Pinterest can be used as visual inspiration, but Pinterest images are not
+// automatically licensed for reuse; we therefore resolve the original file
+// from a source with explicit reuse terms.
+async function fetchCommonsImage(name) {
+  const url = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(name + ' animal')}&gsrnamespace=6&gsrlimit=8&prop=imageinfo&iiprop=url|mime|size&iiurlwidth=1600&format=json&origin=*`;
+  const response = await fetch(url);
+  if (!response.ok) throw new Error('Wikimedia Commons search failed');
+  const data = await response.json();
+  const pages = Object.values(data?.query?.pages || {});
+  const preferred = pages.find((page) => page?.imageinfo?.[0]?.mime?.startsWith('image/'));
+  return preferred?.imageinfo?.[0]?.thumburl || preferred?.imageinfo?.[0]?.url || null;
+}
+
 async function fetchWikipediaImage(name) {
   const summary = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(wikipediaSlug(name))}`);
   if (summary.ok) {
     const data = await summary.json();
     if (data?.originalimage?.source || data?.thumbnail?.source) return data.originalimage?.source || data.thumbnail.source;
   }
-  const search = await fetch(`https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(name)}&gsrnamespace=0&prop=pageimages&piprop=original|thumbnail&pithumbsize=1200&format=json&origin=*`);
+  const search = await fetch(`https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(name)}&gsrnamespace=0&prop=pageimages&piprop=original|thumbnail&pithumbsize=1600&format=json&origin=*`);
   if (!search.ok) throw new Error('Wikipedia image search failed');
   const data = await search.json();
   const page = Object.values(data?.query?.pages || {})[0];
@@ -42,7 +56,10 @@ async function fetchWikipediaImage(name) {
 
 export async function loadAnimalImage(animal) {
   try {
-    const source = await fetchWikipediaImage(animal.name);
+    // Prefer Commons so the site uses images with explicit reuse/licensing information.
+    let source = null;
+    try { source = await fetchCommonsImage(animal.name); } catch { source = null; }
+    if (!source) source = await fetchWikipediaImage(animal.name);
     if (!source) throw new Error('No image found');
     const image = new Image();
     image.crossOrigin = 'anonymous';
