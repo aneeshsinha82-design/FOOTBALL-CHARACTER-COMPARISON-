@@ -26,30 +26,30 @@ export const ANIMALS = [
   ['Japanese giant salamander', 1.5], ['Wolverine', 1.1], ['Siberian ibex', 1.5], ['Common moorhen', 0.35]
 ].sort((a, b) => b[1] - a[1]).slice(0, 100);
 
-export function wikipediaSlug(name) {
-  return name.replace(/ /g, '_');
+export function wikipediaSlug(name) { return name.replace(/ /g, '_'); }
+
+async function fetchWikipediaImage(name) {
+  const summary = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(wikipediaSlug(name))}`);
+  if (summary.ok) {
+    const data = await summary.json();
+    if (data?.originalimage?.source || data?.thumbnail?.source) return data.originalimage?.source || data.thumbnail.source;
+  }
+  const search = await fetch(`https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(name)}&gsrnamespace=0&prop=pageimages&piprop=original|thumbnail&pithumbsize=1200&format=json&origin=*`);
+  if (!search.ok) throw new Error('Wikipedia image search failed');
+  const data = await search.json();
+  const page = Object.values(data?.query?.pages || {})[0];
+  return page?.original?.source || page?.thumbnail?.source || null;
 }
 
 export async function loadAnimalImage(animal) {
   try {
-    const response = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(wikipediaSlug(animal.name))}`);
-    if (!response.ok) throw new Error('Wikipedia image request failed');
-    const data = await response.json();
-    const source = data?.originalimage?.source || data?.thumbnail?.source;
+    const source = await fetchWikipediaImage(animal.name);
     if (!source) throw new Error('No image found');
     const image = new Image();
     image.crossOrigin = 'anonymous';
     image.src = source;
     await image.decode();
-    animal.image = {
-      id: crypto.randomUUID(),
-      name: `${animal.name}.jpg`,
-      url: source,
-      width: image.naturalWidth,
-      height: image.naturalHeight,
-      imageElement: image,
-      remote: true,
-    };
+    animal.image = { id: crypto.randomUUID(), name: `${animal.name}.jpg`, url: source, width: image.naturalWidth, height: image.naturalHeight, imageElement: image, remote: true };
     return animal;
   } catch {
     animal.image = null;
