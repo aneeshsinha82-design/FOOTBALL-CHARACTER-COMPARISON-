@@ -71,8 +71,8 @@ export function getSceneLayout(project) {
   const minGoals = goalCounts.length ? Math.min(...goalCounts) : 0;
   const maxGoals = goalCounts.length ? Math.max(...goalCounts) : 0;
   const maxWidth = project.characters.reduce((max, character) => {
-    const height = Number.isFinite(Number(character.goals)) && goalCounts.length
-      ? (maxGoals === minGoals ? 520 : 360 + ((Number(character.goals) - minGoals) / (maxGoals - minGoals)) * 340)
+    const height = Number.isFinite(Number(character.sizeMeters))
+      ? (maxGoals === minGoals ? 520 : 360 + ((Number(character.sizeMeters) - minGoals) / (maxGoals - minGoals)) * 340)
       : character.image ? Math.max(300, character.image.height * 0.5) : 580;
     const width = character.image ? height * character.image.width / character.image.height : height * 0.48;
     character.renderedDimensions = { width, height };
