@@ -39,7 +39,7 @@ const project = {
     fontFamily: 'system-ui, sans-serif',
   },
   selectedId: null,
-  sortDirection: 'desc',
+  sortDirection: 'asc',
 };
 
 project.selectedId = project.characters[0]?.id ?? null;
@@ -54,7 +54,7 @@ app.innerHTML = `
   <div class="studio-app">
     <header class="topbar">
       <a class="brand" href="#" aria-label="Animal Size Comparison home"><span class="brand-mark">A</span>Animal<span class="brand-light">Size Comparison</span></a>
-      <div class="topbar-actions"><span class="save-state"><i></i> 100 animals</span><button class="button button-primary" data-action="sort-toggle">Descending ↓</button></div>
+      <div class="topbar-actions"><span class="save-state"><i></i> 100 animals</span><button class="button button-primary" data-action="sort-toggle">Ascending ↑</button></div>
     </header>
     <main class="workspace">
       <aside class="sidebar">
